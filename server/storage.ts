@@ -8,7 +8,7 @@ function hexHash(seed: string): string {
     hash = hash & hash;
   }
   const hex = Math.abs(hash).toString(16).padStart(8, "0");
-  return "0x" + hex.repeat(8).slice(0, 64);
+  return (hex.repeat(8).slice(0, 64)).toUpperCase();
 }
 
 function zthAddress(seed: string): string {
@@ -85,22 +85,23 @@ function weightedTxType(): "transfer" | "stake" | "unstake" | "contract" | "dele
 export class BlockchainStorage {
   private blocks: Block[] = [];
   private transactions: Transaction[] = [];
-  private validators: Validator[] = [];
+  private networkOperators: Validator[] = [];
+  private publicValidators: Validator[] = [];
   private currentHeight = 1847293;
   private currentEpoch = 924;
   private totalTxCount = 48293741;
 
   constructor() {
-    this.initValidators();
+    this.initNetworkOperators();
     this.initChain();
   }
 
-  private initValidators() {
+  private initNetworkOperators() {
     for (let i = 0; i < 21; i++) {
       const region = REGIONS[i % REGIONS.length];
       const stake = (Math.random() * 500000 + 50000).toFixed(0);
       const delegated = (Math.random() * 200000 + 10000).toFixed(0);
-      this.validators.push({
+      this.networkOperators.push({
         address: zthAddress(`validator-${i}`),
         name: VALIDATOR_NAMES[i],
         region,
@@ -129,8 +130,8 @@ export class BlockchainStorage {
         hash: hexHash(`block-${height}`),
         previousHash: hexHash(`block-${height - 1}`),
         timestamp: time,
-        validator: this.validators[validatorIdx].address,
-        validatorName: this.validators[validatorIdx].name,
+        validator: this.networkOperators[validatorIdx].address,
+        validatorName: this.networkOperators[validatorIdx].name,
         transactionCount: txCount,
         gasUsed: (Math.random() * 8000000 + 1000000).toFixed(0),
         gasLimit: "10000000",
@@ -149,7 +150,7 @@ export class BlockchainStorage {
           blockHeight: height,
           from: zthAddress(`user-${fromIdx}`),
           to: txType === "stake" || txType === "delegate"
-            ? this.validators[Math.floor(Math.random() * 18)].address
+            ? this.networkOperators[Math.floor(Math.random() * 18)].address
             : zthAddress(`user-${toIdx}`),
           amount: randomAmount(txType === "stake" ? 1000 : 0.1, txType === "stake" ? 100000 : 10000),
           gasFee: (Math.random() * 0.05 + 0.001).toFixed(6),
@@ -174,8 +175,8 @@ export class BlockchainStorage {
       hash: hexHash(`block-${this.currentHeight}-${Date.now()}`),
       previousHash: this.blocks[this.blocks.length - 1]?.hash || hexHash("genesis"),
       timestamp: now,
-      validator: this.validators[validatorIdx].address,
-      validatorName: this.validators[validatorIdx].name,
+      validator: this.networkOperators[validatorIdx].address,
+      validatorName: this.networkOperators[validatorIdx].name,
       transactionCount: txCount,
       gasUsed: (Math.random() * 8000000 + 1000000).toFixed(0),
       gasLimit: "10000000",
@@ -197,7 +198,7 @@ export class BlockchainStorage {
         blockHeight: this.currentHeight,
         from: zthAddress(`user-${fromIdx}`),
         to: txType === "stake" || txType === "delegate"
-          ? this.validators[Math.floor(Math.random() * 18)].address
+          ? this.networkOperators[Math.floor(Math.random() * 18)].address
           : zthAddress(`user-${toIdx}`),
         amount: randomAmount(txType === "stake" ? 1000 : 0.1, txType === "stake" ? 100000 : 10000),
         gasFee: (Math.random() * 0.05 + 0.001).toFixed(6),
@@ -254,7 +255,7 @@ export class BlockchainStorage {
   getAddressInfo(address: string) {
     const devWallet = this.getDeveloperWallet(address);
     const txs = this.getTransactionsByAddress(address, 50);
-    const validator = this.validators.find(v => v.address === address);
+    const validator = this.publicValidators.find(v => v.address === address);
 
     if (devWallet) {
       return {
@@ -289,17 +290,17 @@ export class BlockchainStorage {
   }
 
   getValidators(): Validator[] {
-    return this.validators;
+    return this.publicValidators;
   }
 
   getValidator(address: string): Validator | undefined {
-    return this.validators.find(v => v.address === address);
+    return this.publicValidators.find(v => v.address === address);
   }
 
   getNetworkStatus(network: string): NetworkStatus {
     const isTestnet = network === "testnet";
-    const activeValidators = this.validators.filter(v => v.status === "active").length;
-    const totalStaked = this.validators.reduce((sum, v) =>
+    const activeValidators = this.networkOperators.filter(v => v.status === "active").length;
+    const totalStaked = this.networkOperators.reduce((sum, v) =>
       sum + parseFloat(v.stake) + parseFloat(v.delegatedStake), 0);
 
     return {
@@ -308,7 +309,7 @@ export class BlockchainStorage {
       tps: Math.floor(Math.random() * 2000) + 3000,
       peakTps: 5000,
       activeValidators,
-      totalValidators: this.validators.length,
+      totalValidators: this.publicValidators.length,
       totalSupply: "1000000000.0000",
       circulatingSupply: "350000000.0000",
       totalStaked: totalStaked.toFixed(4),
@@ -347,10 +348,11 @@ export class BlockchainStorage {
     if (query.startsWith("zth1")) {
       return { type: "address", data: this.getAddressInfo(query) };
     }
-    if (query.startsWith("0x") && query.length === 66) {
-      const tx = this.getTransaction(query);
+    const normalised = query.toUpperCase();
+    if (/^[0-9A-F]{64}$/.test(normalised)) {
+      const tx = this.getTransaction(normalised);
       if (tx) return { type: "tx", data: tx };
-      const block = this.getBlockByHash(query);
+      const block = this.getBlockByHash(normalised);
       if (block) return { type: "block", data: block };
     }
     const height = parseInt(query);

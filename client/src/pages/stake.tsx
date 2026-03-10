@@ -76,10 +76,7 @@ export default function Stake() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-background border-b border-border px-5 pt-10 pb-0 sticky top-0 z-10">
-        <h1 className="text-xl font-semibold mb-4">Browser</h1>
-        <BrowserSubNav />
-      </div>
+      <BrowserSubNav />
 
       <div className="px-4 py-5 space-y-4">
         <div className="grid grid-cols-2 gap-3">

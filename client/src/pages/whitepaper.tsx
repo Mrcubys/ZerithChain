@@ -126,19 +126,14 @@ Phase 5 — Ecosystem Expansion (2027+): Smart contract marketplace, NFT standar
 export default function Whitepaper() {
   return (
     <div className="flex flex-col min-h-full">
-      <div className="bg-background border-b border-border px-5 pt-10 pb-0 sticky top-0 z-10">
-        <h1 className="text-xl font-semibold mb-4">Browser</h1>
-        <BrowserSubNav />
-      </div>
-      <div className="border-b border-border px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
-            <BookOpen className="w-4 h-4 text-muted-foreground" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold">Technical Whitepaper</h2>
-            <p className="text-xs text-muted-foreground">Zerith Chain v1.0 — March 2026</p>
-          </div>
+      <BrowserSubNav />
+      <div className="border-b border-border/60 px-5 py-3 bg-muted/20 flex items-center gap-3">
+        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <BookOpen className="w-3.5 h-3.5 text-primary" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold">Technical Whitepaper</p>
+          <p className="text-xs text-muted-foreground">Zerith Chain v1.0 — March 2026</p>
         </div>
       </div>
 

@@ -33,14 +33,9 @@ export default function Explorer() {
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="bg-background border-b border-border px-5 pt-10 pb-0 sticky top-0 z-10">
-        <h1 className="text-xl font-semibold mb-4">Browser</h1>
-        <BrowserSubNav />
-      </div>
-      <div className="border-b border-border px-5 py-4">
-        <h2 className="text-sm font-semibold text-foreground">Block Explorer</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Browse blocks, transactions, and addresses</p>
-        <div className="mt-3 max-w-2xl">
+      <BrowserSubNav />
+      <div className="border-b border-border/60 px-5 py-3 bg-muted/20">
+        <div className="max-w-2xl">
           <SearchBar />
         </div>
       </div>
