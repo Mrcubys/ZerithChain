@@ -6,6 +6,26 @@ import { createServer } from "http";
 const app = express();
 const httpServer = createServer(app);
 
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    process.env.ZENITHSCAN_URL,
+    process.env.ZENITHSCAN_ORIGIN,
+  ].filter(Boolean);
+
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+  next();
+});
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
