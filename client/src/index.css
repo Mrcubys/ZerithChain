@@ -57,6 +57,10 @@
   --shadow-2xl: 0px 2px 0px 0px hsl(240 5.9% 10% / 0.00);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+  --neon-blue: 217 91% 60%;
+  --neon-cyan: 188 95% 50%;
+  --neon-purple: 270 75% 65%;
+  --neon-green: 142 72% 50%;
 
 /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -135,6 +139,10 @@
   --shadow-lg: 0px 2px 0px 0px hsl(240 3.7% 15.9% / 0.00), 0px 4px 6px -1px hsl(240 3.7% 15.9% / 0.00);
   --shadow-xl: 0px 2px 0px 0px hsl(240 3.7% 15.9% / 0.00), 0px 8px 10px -1px hsl(240 3.7% 15.9% / 0.00);
   --shadow-2xl: 0px 2px 0px 0px hsl(240 3.7% 15.9% / 0.00);
+  --neon-blue: 217 91% 65%;
+  --neon-cyan: 188 95% 55%;
+  --neon-purple: 270 75% 70%;
+  --neon-green: 142 72% 55%;
 
 /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
