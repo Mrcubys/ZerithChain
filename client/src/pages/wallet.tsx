@@ -23,8 +23,9 @@ import { SiEthereum, SiSolana } from "react-icons/si";
 import {
   Copy, Eye, EyeOff, Send, ArrowDownLeft, Plus,
   Download, ChevronDown, Check, ExternalLink,
-  TrendingUp, RefreshCw, Trash2, ArrowRight,
+  TrendingUp, RefreshCw, Trash2, ArrowRight, ScanLine,
 } from "lucide-react";
+import { QrScanner } from "@/components/qr-scanner";
 
 const zerithLogoPath = "/zerith-logo.png";
 
@@ -104,6 +105,7 @@ export default function WalletPage() {
   const [copied, setCopied] = useState(false);
   const [chainTab, setChainTab] = useState<ChainTab>("zerith");
   const [addTokenOpen, setAddTokenOpen] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [tokens, setTokens] = useState<CustomToken[]>([]);
   const [pendingAddress, setPendingAddress] = useState<string | null>(null);
   const [pendingSeed, setPendingSeed] = useState<string | null>(null);
@@ -359,13 +361,30 @@ export default function WalletPage() {
         </div>
       </div>
 
+      {showScanner && (
+        <QrScanner
+          onScan={(addr) => {
+            setShowScanner(false);
+            window.location.href = `/wallet/send?to=${encodeURIComponent(addr)}`;
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
       <div className="-mt-10 px-4 space-y-4 pb-6">
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <Button asChild className="flex-1 h-12 rounded-xl shadow-md bg-white text-primary hover:bg-white/90 border border-primary/10" data-testid="button-send">
-            <Link href="/wallet/send"><Send className="w-4 h-4 mr-2" />Send</Link>
+            <Link href="/wallet/send"><Send className="w-4 h-4 mr-1.5" />Send</Link>
           </Button>
           <Button asChild className="flex-1 h-12 rounded-xl shadow-md bg-white text-primary hover:bg-white/90 border border-primary/10" data-testid="button-receive">
-            <Link href="/wallet/receive"><ArrowDownLeft className="w-4 h-4 mr-2" />Receive</Link>
+            <Link href="/wallet/receive"><ArrowDownLeft className="w-4 h-4 mr-1.5" />Receive</Link>
+          </Button>
+          <Button
+            onClick={() => setShowScanner(true)}
+            className="flex-1 h-12 rounded-xl shadow-md bg-white text-primary hover:bg-white/90 border border-primary/10"
+            data-testid="button-scan"
+          >
+            <ScanLine className="w-4 h-4 mr-1.5" />Scan
           </Button>
         </div>
 

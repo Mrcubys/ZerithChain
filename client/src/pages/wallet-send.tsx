@@ -13,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, Send, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle2, Loader2, AlertCircle, ScanLine } from "lucide-react";
 import { formatZTH, shortHash, DEMO_WALLET_ADDRESS } from "@/lib/chain-utils";
 import { useToast } from "@/hooks/use-toast";
+import { QrScanner } from "@/components/qr-scanner";
 
 const sendSchema = z.object({
   to: z.string().min(10, "Enter a valid ZTH address").startsWith("zth1", "Address must start with zth1"),
@@ -28,14 +29,17 @@ type SendForm = z.infer<typeof sendSchema>;
 export default function WalletSend() {
   const [, setLocation] = useLocation();
   const [txResult, setTxResult] = useState<Transaction | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const address = localStorage.getItem("zerith-wallet-address") || DEMO_WALLET_ADDRESS;
   const network = localStorage.getItem("zerith-network") || "mainnet";
 
+  const prefilledTo = new URLSearchParams(window.location.search).get("to") ?? "";
+
   const form = useForm<SendForm>({
     resolver: zodResolver(sendSchema),
-    defaultValues: { to: "", amount: "", memo: "" },
+    defaultValues: { to: prefilledTo, amount: "", memo: "" },
   });
 
   const sendMutation = useMutation({
@@ -120,6 +124,17 @@ export default function WalletSend() {
 
   return (
     <div className="flex flex-col h-full overflow-auto">
+      {showScanner && (
+        <QrScanner
+          onScan={(addr) => {
+            form.setValue("to", addr, { shouldValidate: true });
+            setShowScanner(false);
+            toast({ title: "Address scanned", description: addr.slice(0, 16) + "…" });
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
       <div className="border-b border-border/50 px-6 py-5">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
@@ -143,7 +158,18 @@ export default function WalletSend() {
                     name="to"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Recipient Address</FormLabel>
+                        <div className="flex items-center justify-between">
+                          <FormLabel>Recipient Address</FormLabel>
+                          <button
+                            type="button"
+                            onClick={() => setShowScanner(true)}
+                            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors font-medium"
+                            data-testid="button-scan-qr"
+                          >
+                            <ScanLine className="w-3.5 h-3.5" />
+                            Scan QR
+                          </button>
+                        </div>
                         <FormControl>
                           <Input
                             {...field}
