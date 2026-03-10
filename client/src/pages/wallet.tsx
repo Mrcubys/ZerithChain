@@ -15,7 +15,8 @@ import {
   loadCustomTokens, saveCustomTokens,
   type CustomToken, SUPPORTED_NETWORKS,
 } from "@/lib/chain-utils";
-import { saveSeedPhrase } from "@/lib/pin-security";
+import { saveSeedPhrase, getSeedPhrase } from "@/lib/pin-security";
+import { deriveEvmFromSeed, deriveSolanaFromSeed } from "@/lib/bip44";
 import { PinLock } from "@/components/pin-lock";
 import { AddTokenModal } from "@/components/add-token-modal";
 import { SiEthereum, SiSolana } from "react-icons/si";
@@ -106,8 +107,32 @@ export default function WalletPage() {
   const [tokens, setTokens] = useState<CustomToken[]>([]);
   const [pendingAddress, setPendingAddress] = useState<string | null>(null);
   const [pendingSeed, setPendingSeed] = useState<string | null>(null);
-  const evmAddress = address ? deriveEvmAddress(address) : "";
-  const solanaAddress = address ? deriveSolanaAddress(address) : "";
+  const [evmAddress, setEvmAddress] = useState(() => {
+    const a = localStorage.getItem(STORAGE_ADDRESS_KEY);
+    if (!a) return "";
+    const sp = getSeedPhrase(a);
+    if (sp) return deriveEvmFromSeed(sp);
+    return deriveEvmAddress(a);
+  });
+  const [solanaAddress, setSolanaAddress] = useState(() => {
+    const a = localStorage.getItem(STORAGE_ADDRESS_KEY);
+    if (!a) return "";
+    const sp = getSeedPhrase(a);
+    if (sp) return deriveSolanaFromSeed(sp);
+    return deriveSolanaAddress(a);
+  });
+
+  useEffect(() => {
+    if (!address) { setEvmAddress(""); setSolanaAddress(""); return; }
+    const sp = getSeedPhrase(address);
+    if (sp) {
+      setEvmAddress(deriveEvmFromSeed(sp));
+      setSolanaAddress(deriveSolanaFromSeed(sp));
+    } else {
+      setEvmAddress(deriveEvmAddress(address));
+      setSolanaAddress(deriveSolanaAddress(address));
+    }
+  }, [address]);
 
   useEffect(() => {
     if (address) setTokens(loadCustomTokens(address));
