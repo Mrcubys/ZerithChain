@@ -56,25 +56,14 @@ export function formatBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
-export function txTypeColor(type: string): string {
-  switch (type) {
-    case "transfer": return "text-neon-blue";
-    case "stake": return "text-neon-purple";
-    case "unstake": return "text-orange-400";
-    case "contract": return "text-neon-cyan";
-    case "delegate": return "text-neon-green";
-    default: return "text-muted-foreground";
-  }
-}
-
 export function txTypeBadgeClass(type: string): string {
   switch (type) {
-    case "transfer": return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-    case "stake": return "bg-purple-500/10 text-purple-400 border-purple-500/20";
-    case "unstake": return "bg-orange-500/10 text-orange-400 border-orange-500/20";
-    case "contract": return "bg-cyan-500/10 text-cyan-400 border-cyan-500/20";
-    case "delegate": return "bg-green-500/10 text-green-400 border-green-500/20";
-    default: return "bg-muted text-muted-foreground";
+    case "transfer": return "bg-secondary text-secondary-foreground border-border/50";
+    case "stake": return "bg-secondary text-blue-400 border-border/50";
+    case "unstake": return "bg-secondary text-orange-400 border-border/50";
+    case "contract": return "bg-secondary text-purple-400 border-border/50";
+    case "delegate": return "bg-secondary text-green-400 border-border/50";
+    default: return "bg-secondary text-muted-foreground border-border/50";
   }
 }
 
@@ -83,7 +72,7 @@ export function statusBadgeClass(status: string): string {
     case "success": return "bg-green-500/10 text-green-400 border-green-500/20";
     case "failed": return "bg-red-500/10 text-red-400 border-red-500/20";
     case "pending": return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
-    default: return "bg-muted text-muted-foreground";
+    default: return "bg-secondary text-muted-foreground border-border/50";
   }
 }
 
@@ -91,7 +80,7 @@ export function regionColor(region: string): string {
   switch (region) {
     case "Americas": return "text-blue-400";
     case "Europe": return "text-purple-400";
-    case "Asia": return "text-cyan-400";
+    case "Asia": return "text-orange-400";
     case "Africa": return "text-green-400";
     default: return "text-muted-foreground";
   }
@@ -130,5 +119,6 @@ export function generateAddress(seed: string): string {
   return "zth1" + addr;
 }
 
-export const DEMO_WALLET_ADDRESS = "zth1demo0000000000000000000000000000000000";
-export const DEMO_WALLET_BALANCE = "12847.3291";
+export const DEVELOPER_WALLET_ADDRESS = "zth1dev0000000000000000000000000000000000";
+export const DEMO_WALLET_ADDRESS = DEVELOPER_WALLET_ADDRESS;
+export const DEVELOPER_WALLET_NAME = "Genesis Dev Wallet";

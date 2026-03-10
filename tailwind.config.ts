@@ -133,8 +133,8 @@ export default {
         "glow": "glow 2s ease-in-out infinite",
       },
       backgroundImage: {
-        "grid-pattern": "linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px)",
-        "hero-gradient": "radial-gradient(ellipse at top, hsl(var(--neon-blue) / 0.15), transparent 50%), radial-gradient(ellipse at bottom right, hsl(var(--neon-purple) / 0.1), transparent 50%)",
+        "grid-pattern": "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)",
+        "hero-gradient": "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%)",
       },
       backgroundSize: {
         "grid": "40px 40px",

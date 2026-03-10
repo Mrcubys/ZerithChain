@@ -1,0 +1,275 @@
+Create a **complete, production-ready Layer-1 blockchain project called Zerith Chain**. This project must include everything needed to build a real blockchain ecosystem, including **whitepaper, core blockchain code, node architecture, genesis block, global validator network, interactive web wallet with professional OKX-style design, live explorer dashboard, testnet/mainnet configuration, and starter code**.
+
+All outputs must be in **English** and designed as a serious blockchain project similar to Ethereum or Solana. Ensure the following updates:
+
+---
+
+## 1. Whitepaper
+
+Generate a **full professional whitepaper** with the following sections:
+
+1. **Introduction**
+
+* Purpose: High-performance decentralized Layer-1 blockchain.
+* Vision: Fast transactions, secure smart contracts, developer-friendly tools.
+
+2. **Zerith Chain Overview**
+
+* Layer-1 blockchain architecture
+* Key differentiators vs. other blockchains
+
+3. **Core Features**
+
+* Fast block time (~2s)
+* High TPS (~5000)
+* Secure validator consensus (ZPoS)
+* Developer SDK & API
+* Web3 wallet compatibility
+
+4. **Zerith Token (ZTH)**
+
+* Symbol: ZTH
+* Decimals: 18
+* Initial supply: 1,000,000,000 ZTH
+* Token use: gas fees, staking, governance, ecosystem rewards
+
+5. **Consensus Mechanism – ZPoS (Zerith Proof of Stake)**
+
+* Validator staking
+* Block proposer rotation
+* Fast finality
+* Slashing for malicious validators
+
+6. **Network Architecture**
+
+* Validator Nodes
+* Full Nodes
+* RPC Nodes
+* Archive Nodes
+
+7. **Security Model**
+
+* Cryptographic signatures, validator security, network validation
+
+8. **Roadmap**
+
+* Phase 1: Development
+* Phase 2: Testnet Launch
+* Phase 3: Validator Network
+* Phase 4: Mainnet Launch
+* Phase 5: Ecosystem Expansion
+
+---
+
+## 2. Node Architecture & Blockchain Core
+
+### Node Directory Structure
+
+zerith-node
+│
+├── consensus       # ZPoS consensus & validator selection
+├── blockchain      # Block storage & validation
+├── mempool         # Pending transactions
+├── networking      # P2P communication
+├── validator       # Staking & block production
+├── rpc             # API for wallets & dApps
+├── storage         # Persistent blockchain data
+└── crypto          # Hashing & signatures
+
+### Core Data Structures
+
+**Block Structure**
+block_height
+block_hash
+previous_hash
+timestamp
+validator
+transactions
+state_root
+signature
+
+**Transaction Structure**
+
+* Generate a **unique hash for each transaction** using SHA256 of concatenated fields (not EVM-style tx hash)
+  from_address
+  to_address
+  amount
+  gas_fee
+  nonce
+  timestamp
+  signature
+
+**Address Format**
+
+* Lowercase only, bech32
+* Example: zth1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+* Same format for mainnet & testnet
+
+**Initial Wallet Balances**
+
+* All wallets start with 0 ZTH except **developer wallets**
+* Developer wallets must have a generated **24-word seed phrase** stored securely in genesis
+
+---
+
+## 3. Genesis Block
+
+`genesis.json` must include:
+
+chain_id: "zerith-mainnet-1"
+genesis_time: "2026-03-10T00:00:00Z"
+initial_supply: 1,000,000,000
+symbol: ZTH
+decimals: 18
+initial_validators:
+
+* validator_1
+* validator_2
+* validator_3
+  developer_wallets:
+* zth1devxxxxxxxxxxxxxxxxxxxxxxxxxxxx : preloaded with initial ZTH and seed phrase generated securely
+  network_parameters: {...}
+
+---
+
+## 4. Global Validator Network
+
+### Structure
+
+* Total Validators: 100
+* Regional Clusters: Americas, Europe, Asia, Africa
+* Validator Requirements: CPU 8 cores, RAM 32GB, Storage 1TB SSD, Bandwidth 1Gbps
+* Minimum Stake: 50,000 ZTH
+* Block Time: 2s
+* Slashing: Active for malicious/inactive validators
+* Delegation: Token holders can delegate stake
+
+### Validator Flow
+
+Transaction -> Mempool -> Block proposer (ZPoS) -> Verification by validators -> Block finalization
+
+### Monitoring & Redundancy
+
+* Health check for all validators
+* Failover for downtime
+* Latency monitoring per region
+
+---
+
+## 5. Web Wallet Prototype – Zerith Wallet (OKX-style Professional Design)
+
+**Design Goals**: Minimalist, clean, professional like OKX Wallet. Neutral palette: mostly dark gray, white, subtle accents. No bright neon or blue. High usability, modern UI/UX.
+
+**Features**
+
+* Create / Import wallet (24-word BIP39 seed phrase)
+* Developer wallet auto-generates seed phrase and is preloaded with ZTH
+* All other wallets start with 0 ZTH
+* Passkey authentication + Auto-lock every 5 minutes inactivity
+* Send / Receive ZTH
+* Dashboard: Balance, recent transactions, latest blocks, network TPS, validator status
+* Network switch: Mainnet / Testnet
+* QR code support for fast transfer
+* Optional hardware wallet integration
+
+**UI/UX Concept**
+
+* Clean card-style interface for balance, transactions, and network info
+* Sidebar with clear icons and consistent menu spacing
+* Header with clean logo placement and network switch
+* Buttons with subtle hover effects, rounded corners
+* Charts for balance and transaction history with minimalist line and bar charts
+* Mobile-optimized with bottom navigation
+* Professional icon library for all menu items (e.g., Font Awesome or Material Icons)
+* Consistent typography and spacing like OKX wallet for a modern professional look
+
+**Frontend Tech Stack**
+
+* React + Next.js, TailwindCSS, Framer Motion for smooth animations
+* ethers.js / web3.js for blockchain interaction
+* BIP39 + BIP32 for seed phrase derivation
+
+**Interactive Prototype**
+
+* Smooth transitions for wallet pages and network switch
+* Real-time wallet balances via RPC
+* Transaction toast notifications
+* Clear UX for Send/Receive with confirmation modals
+
+---
+
+## 6. Live Explorer – ZenithScan
+
+**Features**
+
+* Search: blocks, transactions, addresses, tokens
+* Dashboard: latest blocks, latest transactions, network TPS, total supply, active validators
+* Pages:
+  /block/{height}
+  /tx/{hash}
+  /address/{address}
+  /token/{symbol}
+* Integration with wallet for quick lookup
+
+**Frontend Tech Stack**
+
+* React + Next.js, TailwindCSS, Framer Motion
+
+**Backend**
+
+* Node.js + PostgreSQL
+* Indexer in Go / Rust
+
+**Live Updates**
+
+* Polling or WebSocket for real-time transaction/block feed
+* Validator activity status display
+
+---
+
+## 7. RPC & Network Config
+
+**RPC APIs**
+getBlock
+getTransaction
+getBalance
+sendTransaction
+getLatestBlock
+getNetworkStatus
+
+**Testnet**
+chain_id: zerith-testnet-1
+symbol: ZTH
+rpc_url: https://testnet-rpc.zerith.replit.com
+explorer_url: https://testnet-zenithscan.replit.com
+
+**Mainnet**
+chain_id: zerith-mainnet-1
+symbol: ZTH
+rpc_url: https://rpc.zerith.replit.com
+explorer_url: https://zenithscan.replit.com
+
+---
+
+## 8. Technology Stack Summary
+
+Blockchain Core: Rust / Go
+Wallet & Explorer: React + Next.js + TailwindCSS + Framer Motion
+Database: PostgreSQL
+Networking: libp2p / P2P protocol
+Crypto: BIP39, BIP32, BIP44, bech32 addresses, SHA256 for transaction hashes
+
+---
+
+## Deliverables
+
+1. Full Whitepaper
+2. Node Architecture Documentation
+3. Blockchain Core Code Example with SHA256 tx hashes
+4. Genesis Block Configuration with developer wallet seed phrase
+5. Global Validator Network Design
+6. Redesigned OKX-style Interactive Web Wallet Prototype
+7. Live Explorer Dashboard
+8. RPC APIs
+9. Testnet & Mainnet Setup
+10. Starter Code ready to deploy on Replit or other platforms

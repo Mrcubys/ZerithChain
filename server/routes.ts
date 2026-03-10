@@ -49,6 +49,11 @@ export async function registerRoutes(
     res.json(tx);
   });
 
+  app.get("/api/addresses/:address", (req, res) => {
+    const info = blockchainStorage.getAddressInfo(req.params.address);
+    res.json(info);
+  });
+
   app.get("/api/address/:address", (req, res) => {
     const info = blockchainStorage.getAddressInfo(req.params.address);
     res.json(info);
@@ -64,6 +69,16 @@ export async function registerRoutes(
       return res.status(404).json({ error: "Validator not found" });
     }
     res.json(validator);
+  });
+
+  app.get("/api/wallet", (req, res) => {
+    const address = req.query.address as string;
+    const network = (req.query.network as string) || "mainnet";
+    if (!address) {
+      return res.status(400).json({ error: "Address required" });
+    }
+    const wallet = blockchainStorage.getWallet(address, network);
+    res.json(wallet);
   });
 
   app.get("/api/wallet/:address", (req, res) => {
@@ -96,6 +111,10 @@ export async function registerRoutes(
       return res.status(400).json({ error: "Query required" });
     }
     res.json(blockchainStorage.search(query));
+  });
+
+  app.get("/api/genesis", (req, res) => {
+    res.json(blockchainStorage.getGenesisConfig());
   });
 
   return httpServer;

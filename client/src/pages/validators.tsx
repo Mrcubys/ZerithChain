@@ -4,152 +4,141 @@ import type { Validator } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Globe, Zap, Award, Activity } from "lucide-react";
-import { formatZTH, formatCompact, shortAddress, regionColor } from "@/lib/chain-utils";
+import { regionColor } from "@/lib/chain-utils";
+import { Shield, Activity, Globe } from "lucide-react";
 
-function validatorStatusBadge(status: string) {
-  switch (status) {
-    case "active": return "bg-green-500/10 text-green-400 border-green-500/20";
-    case "inactive": return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
-    case "jailed": return "bg-red-500/10 text-red-400 border-red-500/20";
-    default: return "bg-muted text-muted-foreground";
-  }
+function statusBadge(status: string) {
+  if (status === "active") return "bg-green-500/10 text-green-400 border-green-500/20";
+  if (status === "inactive") return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+  return "bg-red-500/10 text-red-400 border-red-500/20";
 }
 
 export default function Validators() {
   const { data: validators, isLoading } = useQuery<Validator[]>({
     queryKey: ["/api/validators"],
-    refetchInterval: 15000,
+    refetchInterval: 10000,
   });
 
-  const byRegion = validators ? {
-    Americas: validators.filter(v => v.region === "Americas"),
-    Europe: validators.filter(v => v.region === "Europe"),
-    Asia: validators.filter(v => v.region === "Asia"),
-    Africa: validators.filter(v => v.region === "Africa"),
-  } : {};
-
-  const activeCount = validators?.filter(v => v.status === "active").length ?? 0;
-  const totalStake = validators?.reduce((sum, v) => sum + parseFloat(v.stake) + parseFloat(v.delegatedStake), 0) ?? 0;
+  const active = validators?.filter(v => v.status === "active").length ?? 0;
+  const inactive = validators?.filter(v => v.status === "inactive").length ?? 0;
+  const jailed = validators?.filter(v => v.status === "jailed").length ?? 0;
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
-      <div className="border-b border-border/50 px-6 py-6 bg-grid-pattern bg-grid">
-        <div className="flex items-center gap-3 mb-1">
-          <Shield className="w-6 h-6 text-neon-purple" />
-          <h1 className="font-display text-2xl font-bold">Validator Network</h1>
-        </div>
-        <p className="text-muted-foreground text-sm">Zerith Chain global validator network — ZPoS consensus</p>
-
-        <div className="grid grid-cols-2 gap-4 mt-5 lg:grid-cols-4">
-          <div className="rounded-md border border-border/50 bg-card p-3">
-            <div className="text-xs text-muted-foreground">Active Validators</div>
-            <div className="text-xl font-display font-bold text-green-400 mt-0.5" data-testid="validators-active">{activeCount}</div>
+    <div className="flex flex-col min-h-full">
+      <div className="border-b border-border px-6 py-6">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-xl font-semibold">Validators</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Global Zerith Chain validator network</p>
           </div>
-          <div className="rounded-md border border-border/50 bg-card p-3">
-            <div className="text-xs text-muted-foreground">Total Staked</div>
-            <div className="text-xl font-display font-bold text-neon-purple mt-0.5">{formatCompact(totalStake)} ZTH</div>
-          </div>
-          <div className="rounded-md border border-border/50 bg-card p-3">
-            <div className="text-xs text-muted-foreground">Min. Stake</div>
-            <div className="text-xl font-display font-bold text-primary mt-0.5">50K ZTH</div>
-          </div>
-          <div className="rounded-md border border-border/50 bg-card p-3">
-            <div className="text-xs text-muted-foreground">Block Time</div>
-            <div className="text-xl font-display font-bold text-neon-cyan mt-0.5">~2s</div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+              {active} active
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+              {inactive} inactive
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+              {jailed} jailed
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="p-6 flex-1">
-        <Tabs defaultValue="all">
-          <TabsList className="mb-4">
-            <TabsTrigger value="all" data-testid="tab-all-validators">All</TabsTrigger>
-            {Object.keys(byRegion).map(region => (
-              <TabsTrigger key={region} value={region} data-testid={`tab-region-${region.toLowerCase()}`}>{region}</TabsTrigger>
-            ))}
-          </TabsList>
-
-          {["all", "Americas", "Europe", "Asia", "Africa"].map(tab => (
-            <TabsContent key={tab} value={tab}>
-              <div className="space-y-3">
-                {isLoading
-                  ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24" />)
-                  : (tab === "all" ? validators : byRegion[tab as keyof typeof byRegion])?.map((validator) => (
-                    <ValidatorCard key={validator.address} validator={validator} />
-                  ))
-                }
-              </div>
-            </TabsContent>
+      <div className="p-6 space-y-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Total Validators", value: validators?.length ?? "—" },
+            { label: "Active", value: active, color: "text-green-400" },
+            { label: "Min Stake", value: "50,000 ZTH" },
+            { label: "Block Time", value: "~2.0s" },
+          ].map((stat, i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="text-xs text-muted-foreground uppercase tracking-wider">{stat.label}</div>
+                <div className={`text-xl font-semibold font-mono mt-1 ${stat.color ?? "text-foreground"}`}>{stat.value}</div>
+              </CardContent>
+            </Card>
           ))}
-        </Tabs>
+        </div>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Shield className="w-4 h-4 text-muted-foreground" />
+              Validator Set
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left text-xs text-muted-foreground font-medium py-2.5 pr-4 uppercase tracking-wider">Rank</th>
+                    <th className="text-left text-xs text-muted-foreground font-medium py-2.5 pr-4 uppercase tracking-wider">Validator</th>
+                    <th className="text-left text-xs text-muted-foreground font-medium py-2.5 pr-4 uppercase tracking-wider hidden md:table-cell">Region</th>
+                    <th className="text-right text-xs text-muted-foreground font-medium py-2.5 pr-4 uppercase tracking-wider hidden sm:table-cell">Stake</th>
+                    <th className="text-right text-xs text-muted-foreground font-medium py-2.5 pr-4 uppercase tracking-wider hidden lg:table-cell">Uptime</th>
+                    <th className="text-right text-xs text-muted-foreground font-medium py-2.5 pr-4 uppercase tracking-wider hidden lg:table-cell">Latency</th>
+                    <th className="text-right text-xs text-muted-foreground font-medium py-2.5 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading
+                    ? Array.from({ length: 10 }).map((_, i) => (
+                      <tr key={i} className="border-b border-border/40">
+                        <td colSpan={7} className="py-3"><Skeleton className="h-5 w-full" /></td>
+                      </tr>
+                    ))
+                    : validators?.map((v) => (
+                      <tr key={v.address} className="border-b border-border/40 last:border-0 hover:bg-accent/30 transition-colors" data-testid={`validator-row-${v.rank}`}>
+                        <td className="py-3 pr-4">
+                          <span className="font-mono text-xs text-muted-foreground">#{v.rank}</span>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <Link href={`/explorer/address/${v.address}`} className="font-medium hover:text-foreground/80">
+                            {v.name}
+                          </Link>
+                          <div className="font-mono text-xs text-muted-foreground truncate max-w-[160px]">{v.address.slice(0, 20)}...</div>
+                        </td>
+                        <td className="py-3 pr-4 hidden md:table-cell">
+                          <div className="flex items-center gap-1.5">
+                            <Globe className={`w-3 h-3 ${regionColor(v.region)}`} />
+                            <span className={`text-xs ${regionColor(v.region)}`}>{v.region}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 pr-4 text-right hidden sm:table-cell">
+                          <div className="font-mono text-xs">{parseFloat(v.stake).toLocaleString()}</div>
+                          <div className="font-mono text-xs text-muted-foreground">+{parseFloat(v.delegatedStake).toLocaleString()}</div>
+                        </td>
+                        <td className="py-3 pr-4 text-right hidden lg:table-cell">
+                          <span className={`font-mono text-xs ${parseFloat(v.uptime.toString()) >= 99 ? "text-green-400" : "text-yellow-400"}`}>
+                            {v.uptime}%
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-right hidden lg:table-cell">
+                          <span className={`font-mono text-xs ${v.latency < 50 ? "text-green-400" : v.latency < 100 ? "text-yellow-400" : "text-red-400"}`}>
+                            {v.latency}ms
+                          </span>
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border capitalize ${statusBadge(v.status)}`}>
+                            {v.status === "active" && <Activity className="w-2.5 h-2.5 mr-1" />}
+                            {v.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
-  );
-}
-
-function ValidatorCard({ validator }: { validator: Validator }) {
-  const totalStake = parseFloat(validator.stake) + parseFloat(validator.delegatedStake);
-
-  return (
-    <Card className="hover-elevate" data-testid={`validator-card-${validator.rank}`}>
-      <CardContent className="p-4">
-        <div className="flex items-start gap-4">
-          <div className="flex-shrink-0 w-10 h-10 rounded-md bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center border border-border/50">
-            <span className="text-sm font-display font-bold text-primary">#{validator.rank}</span>
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link href={`/explorer/address/${validator.address}`} className="font-semibold text-foreground" data-testid={`validator-name-${validator.rank}`}>
-                {validator.name}
-              </Link>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border capitalize ${validatorStatusBadge(validator.status)}`}>
-                {validator.status}
-              </span>
-              <span className={`text-xs font-medium ${regionColor(validator.region)} flex items-center gap-1`}>
-                <Globe className="w-3 h-3" />
-                {validator.region}
-              </span>
-            </div>
-            <div className="text-xs font-mono text-muted-foreground mt-0.5">{shortAddress(validator.address)}</div>
-
-            <div className="grid grid-cols-4 gap-4 mt-3">
-              <div>
-                <div className="text-xs text-muted-foreground">Total Stake</div>
-                <div className="text-sm font-semibold text-neon-purple">{formatCompact(totalStake)} ZTH</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Commission</div>
-                <div className="text-sm font-semibold">{validator.commission}%</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Uptime</div>
-                <div className="flex items-center gap-1.5">
-                  <div className="flex-1">
-                    <Progress value={validator.uptime} className="h-1.5" />
-                  </div>
-                  <span className="text-sm font-semibold text-green-400">{validator.uptime}%</span>
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Latency</div>
-                <div className="text-sm font-semibold text-neon-cyan flex items-center gap-1">
-                  <Activity className="w-3 h-3" />
-                  {validator.latency}ms
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-right flex-shrink-0">
-            <div className="text-xs text-muted-foreground">Blocks</div>
-            <div className="text-sm font-semibold font-mono">{validator.blocksProduced.toLocaleString()}</div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

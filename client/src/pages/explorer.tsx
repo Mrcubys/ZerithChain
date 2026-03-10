@@ -31,25 +31,24 @@ export default function Explorer() {
   });
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
-      <div className="border-b border-border/50 px-6 py-6 bg-grid-pattern bg-grid">
-        <div className="absolute inset-0 bg-hero-gradient pointer-events-none" />
-        <h1 className="font-display text-2xl font-bold text-foreground">Block Explorer</h1>
-        <p className="text-muted-foreground text-sm mt-1">Browse blocks, transactions, and addresses on Zerith Chain</p>
+    <div className="flex flex-col min-h-full">
+      <div className="border-b border-border px-6 py-6">
+        <h1 className="text-xl font-semibold text-foreground">Block Explorer</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Browse blocks, transactions, and addresses on Zerith Chain</p>
         <div className="mt-4 max-w-2xl">
           <SearchBar />
         </div>
       </div>
 
-      <div className="p-6 flex-1">
+      <div className="p-6">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-4" data-testid="tabs-explorer">
             <TabsTrigger value="blocks" data-testid="tab-blocks">
-              <Layers className="w-4 h-4 mr-1.5" />
+              <Layers className="w-3.5 h-3.5 mr-1.5" />
               Blocks
             </TabsTrigger>
             <TabsTrigger value="transactions" data-testid="tab-transactions">
-              <ArrowRightLeft className="w-4 h-4 mr-1.5" />
+              <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5" />
               Transactions
             </TabsTrigger>
           </TabsList>
@@ -57,15 +56,17 @@ export default function Explorer() {
           <TabsContent value="blocks">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-display flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-primary" />
-                  Latest Blocks
-                  <span className="ml-auto text-xs font-normal text-muted-foreground font-sans">Auto-refreshing</span>
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-muted-foreground" />
+                    Latest Blocks
+                  </CardTitle>
+                  <span className="text-xs text-muted-foreground">Auto-refreshing</span>
+                </div>
               </CardHeader>
               <CardContent className="pt-0">
                 {blocksLoading
-                  ? Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-14 mb-2" />)
+                  ? Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-14 mb-1" />)
                   : blocks?.map((block) => <BlockRow key={block.height} block={block} />)
                 }
               </CardContent>
@@ -75,15 +76,17 @@ export default function Explorer() {
           <TabsContent value="transactions">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-display flex items-center gap-2">
-                  <ArrowRightLeft className="w-4 h-4 text-neon-purple" />
-                  Latest Transactions
-                  <span className="ml-auto text-xs font-normal text-muted-foreground font-sans">Auto-refreshing</span>
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />
+                    Latest Transactions
+                  </CardTitle>
+                  <span className="text-xs text-muted-foreground">Auto-refreshing</span>
+                </div>
               </CardHeader>
               <CardContent className="pt-0">
                 {txLoading
-                  ? Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-14 mb-2" />)
+                  ? Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-14 mb-1" />)
                   : transactions?.map((tx) => <TxRow key={tx.hash} tx={tx} />)
                 }
               </CardContent>

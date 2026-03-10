@@ -1,49 +1,54 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import type { Transaction } from "@shared/schema";
 import { TxRow } from "@/components/tx-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
-import {
-  Wallet, Send, ArrowDownLeft, Copy, RefreshCw,
-  Plus, Import, Shield, Eye, EyeOff, Zap,
-} from "lucide-react";
-import { formatZTH, formatCompact, shortAddress, generateSeedWords, generateAddress, DEMO_WALLET_ADDRESS } from "@/lib/chain-utils";
 import { useToast } from "@/hooks/use-toast";
+import {
+  generateSeedWords, generateAddress, formatZTH,
+  DEVELOPER_WALLET_ADDRESS,
+} from "@/lib/chain-utils";
+import {
+  Wallet, Copy, Eye, EyeOff, Send, ArrowDownLeft, RefreshCw,
+  Plus, Download, Gem, ExternalLink, ChevronDown, Check,
+} from "lucide-react";
 
+const STORAGE_ADDRESS_KEY = "zerith-wallet-address";
+const STORAGE_NETWORK_KEY = "zerith-network";
+
+type WalletMode = "none" | "create" | "import" | "demo";
 type Network = "mainnet" | "testnet";
 
-interface WalletData {
-  address: string;
-  balance: string;
-  stakedBalance: string;
-  nonce: number;
-  transactions: Transaction[];
-}
-
 export default function WalletPage() {
-  const [address, setAddress] = useState<string | null>(() => localStorage.getItem("zerith-wallet-address"));
-  const [network, setNetwork] = useState<Network>(() => (localStorage.getItem("zerith-network") as Network) || "mainnet");
-  const [showBalance, setShowBalance] = useState(true);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showImportDialog, setShowImportDialog] = useState(false);
-  const [seedWords, setSeedWords] = useState<string[]>([]);
-  const [seedConfirmed, setSeedConfirmed] = useState(false);
-  const [importSeed, setImportSeed] = useState("");
+  const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [address, setAddress] = useState<string | null>(() => localStorage.getItem(STORAGE_ADDRESS_KEY));
+  const [network, setNetwork] = useState<Network>(() => (localStorage.getItem(STORAGE_NETWORK_KEY) as Network) ?? "mainnet");
+  const [mode, setMode] = useState<WalletMode>("none");
+  const [showBalance, setShowBalance] = useState(true);
+  const [seedWords, setSeedWords] = useState<string[]>([]);
+  const [importPhrase, setImportPhrase] = useState("");
+  const [seedConfirmed, setSeedConfirmed] = useState(false);
+  const [networkOpen, setNetworkOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const { data: wallet, isLoading, refetch } = useQuery<WalletData>({
+  const isDemoWallet = address === DEVELOPER_WALLET_ADDRESS;
+
+  const { data: walletInfo, isLoading: walletLoading, refetch } = useQuery<{
+    balance: string; stakedBalance: string; nonce: number;
+    transactions: Transaction[]; isDeveloper: boolean; walletName: string | null;
+  }>({
     queryKey: ["/api/wallet", address, network],
     queryFn: async () => {
-      if (!address) throw new Error("No wallet");
-      const res = await fetch(`/api/wallet/${address}?network=${network}`);
+      if (!address) throw new Error("No address");
+      const res = await fetch(`/api/wallet?address=${address}&network=${network}`);
       return res.json();
     },
     enabled: !!address,
@@ -52,143 +57,157 @@ export default function WalletPage() {
 
   const switchNetwork = (n: Network) => {
     setNetwork(n);
-    localStorage.setItem("zerith-network", n);
-    toast({ title: `Switched to ${n}`, description: `RPC: ${n === "mainnet" ? "rpc.zerith.replit.com" : "testnet-rpc.zerith.replit.com"}` });
+    localStorage.setItem(STORAGE_NETWORK_KEY, n);
+    setNetworkOpen(false);
   };
 
-  const createWallet = () => {
+  const openCreate = () => {
     const words = generateSeedWords();
     setSeedWords(words);
     setSeedConfirmed(false);
-    setShowCreateDialog(true);
+    setMode("create");
   };
 
-  const confirmCreateWallet = () => {
-    if (!seedConfirmed) {
-      toast({ title: "Please confirm", description: "You must confirm you've saved your seed phrase.", variant: "destructive" });
+  const openImport = () => {
+    setImportPhrase("");
+    setMode("import");
+  };
+
+  const confirmCreate = () => {
+    const addr = generateAddress(seedWords.join(" ") + Date.now());
+    setAddress(addr);
+    localStorage.setItem(STORAGE_ADDRESS_KEY, addr);
+    setMode("none");
+    toast({ title: "Wallet created", description: "Your new wallet has been set up. Balance starts at 0 ZTH." });
+  };
+
+  const confirmImport = () => {
+    const words = importPhrase.trim().split(/\s+/);
+    if (words.length !== 12 && words.length !== 24) {
+      toast({ title: "Invalid phrase", description: "Please enter a 12 or 24-word seed phrase.", variant: "destructive" });
       return;
     }
-    const newAddress = generateAddress(seedWords.join(" "));
-    setAddress(newAddress);
-    localStorage.setItem("zerith-wallet-address", newAddress);
-    setShowCreateDialog(false);
-    toast({ title: "Wallet Created", description: `Address: ${shortAddress(newAddress)}` });
+    const addr = generateAddress(importPhrase.trim());
+    setAddress(addr);
+    localStorage.setItem(STORAGE_ADDRESS_KEY, addr);
+    setMode("none");
+    toast({ title: "Wallet imported", description: "Wallet restored from seed phrase." });
   };
 
-  const importWallet = () => {
-    const words = importSeed.trim().split(/\s+/);
-    if (words.length < 12) {
-      toast({ title: "Invalid seed phrase", description: "Please enter a valid 12 or 24-word seed phrase.", variant: "destructive" });
-      return;
-    }
-    const newAddress = generateAddress(importSeed.trim());
-    setAddress(newAddress);
-    localStorage.setItem("zerith-wallet-address", newAddress);
-    setShowImportDialog(false);
-    setImportSeed("");
-    toast({ title: "Wallet Imported", description: `Address: ${shortAddress(newAddress)}` });
+  const loadDemo = () => {
+    setAddress(DEVELOPER_WALLET_ADDRESS);
+    localStorage.setItem(STORAGE_ADDRESS_KEY, DEVELOPER_WALLET_ADDRESS);
+    setMode("none");
+    toast({ title: "Demo wallet loaded", description: "Genesis developer wallet with preloaded ZTH balance." });
   };
 
-  const useDemoWallet = () => {
-    setAddress(DEMO_WALLET_ADDRESS);
-    localStorage.setItem("zerith-wallet-address", DEMO_WALLET_ADDRESS);
-    toast({ title: "Demo wallet loaded", description: "Using demo wallet address." });
+  const disconnect = () => {
+    setAddress(null);
+    localStorage.removeItem(STORAGE_ADDRESS_KEY);
+    toast({ title: "Wallet disconnected" });
   };
 
-  const copy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({ title: "Copied", description: "Address copied to clipboard." });
-  };
+  const copyAddress = useCallback(() => {
+    if (!address) return;
+    navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [address]);
 
   if (!address) {
     return (
-      <div className="flex flex-col h-full overflow-auto">
-        <div className="border-b border-border/50 px-6 py-6">
-          <div className="flex items-center gap-3">
-            <Wallet className="w-6 h-6 text-primary" />
-            <h1 className="font-display text-2xl font-bold">Zerith Wallet</h1>
-          </div>
-          <p className="text-muted-foreground text-sm mt-1">Your gateway to the Zerith Chain ecosystem</p>
+      <div className="flex flex-col min-h-full">
+        <div className="border-b border-border px-6 py-6">
+          <h1 className="text-xl font-semibold">Zerith Wallet</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage your ZTH on Zerith Chain</p>
         </div>
 
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full space-y-4">
-            <div className="text-center mb-6">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mx-auto mb-4 animate-glow">
-                <Wallet className="w-10 h-10 text-white" />
+        <div className="flex-1 flex items-start justify-center p-6">
+          <div className="w-full max-w-sm space-y-3">
+            <div className="text-center mb-8">
+              <div className="w-14 h-14 rounded-md bg-secondary flex items-center justify-center mx-auto mb-4">
+                <Wallet className="w-7 h-7 text-muted-foreground" />
               </div>
-              <h2 className="font-display text-2xl font-bold">Get Started</h2>
-              <p className="text-muted-foreground text-sm mt-2">Create a new wallet or import an existing one</p>
+              <h2 className="text-lg font-semibold">Connect Wallet</h2>
+              <p className="text-sm text-muted-foreground mt-1">Create a new wallet or import an existing one</p>
             </div>
 
-            <Button className="w-full" size="lg" onClick={createWallet} data-testid="button-create-wallet">
-              <Plus className="w-5 h-5 mr-2" />
+            <Button className="w-full" onClick={openCreate} data-testid="button-create-wallet">
+              <Plus className="w-4 h-4 mr-2" />
               Create New Wallet
             </Button>
-            <Button variant="secondary" className="w-full" size="lg" onClick={() => setShowImportDialog(true)} data-testid="button-import-wallet">
-              <Import className="w-5 h-5 mr-2" />
-              Import Existing Wallet
+            <Button variant="outline" className="w-full" onClick={openImport} data-testid="button-import-wallet">
+              <Download className="w-4 h-4 mr-2" />
+              Import Seed Phrase
             </Button>
             <div className="relative">
-              <Separator />
-              <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">or</span>
+              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Or</span>
+              </div>
             </div>
-            <Button variant="outline" className="w-full" onClick={useDemoWallet} data-testid="button-demo-wallet">
-              <Zap className="w-4 h-4 mr-2" />
-              Use Demo Wallet
+            <Button variant="ghost" className="w-full border border-border/50" onClick={loadDemo} data-testid="button-demo-wallet">
+              <Gem className="w-4 h-4 mr-2 text-amber-400" />
+              Open Demo Wallet
             </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Demo wallet is a genesis developer wallet with preloaded ZTH
+            </p>
           </div>
         </div>
 
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <Dialog open={mode === "create"} onOpenChange={(o) => !o && setMode("none")}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="font-display">Save Your Seed Phrase</DialogTitle>
+              <DialogTitle>Create Wallet</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Write down these 24 words in order. Never share them with anyone.</p>
-              <div className="grid grid-cols-3 gap-2 p-3 bg-card rounded-md border border-border/50">
+              <div className="p-3 rounded-sm bg-amber-500/10 border border-amber-500/20">
+                <p className="text-xs text-amber-400">Write down your seed phrase and store it securely. It cannot be recovered if lost.</p>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5" data-testid="seed-phrase-grid">
                 {seedWords.map((word, i) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground w-5 text-right">{i + 1}.</span>
-                    <span className="text-xs font-mono font-semibold text-foreground" data-testid={`seed-word-${i}`}>{word}</span>
+                  <div key={i} className="flex items-center gap-1.5 bg-secondary rounded-sm px-2.5 py-1.5">
+                    <span className="text-xs text-muted-foreground w-4 text-right flex-shrink-0">{i + 1}.</span>
+                    <span className="text-xs font-mono">{word}</span>
                   </div>
                 ))}
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={seedConfirmed}
-                  onChange={e => setSeedConfirmed(e.target.checked)}
-                  data-testid="checkbox-seed-confirmed"
-                  className="rounded"
-                />
-                <span className="text-sm">I have securely saved my seed phrase</span>
-              </label>
-              <Button className="w-full" onClick={confirmCreateWallet} data-testid="button-confirm-create">
-                Create Wallet
-              </Button>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="seed-confirm" checked={seedConfirmed} onChange={e => setSeedConfirmed(e.target.checked)} className="rounded border-border" data-testid="checkbox-seed-confirmed" />
+                <label htmlFor="seed-confirm" className="text-sm text-muted-foreground cursor-pointer">I have saved my seed phrase securely</label>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setMode("none")} className="flex-1">Cancel</Button>
+                <Button onClick={confirmCreate} disabled={!seedConfirmed} className="flex-1" data-testid="button-confirm-create">
+                  Create Wallet
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
 
-        <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <Dialog open={mode === "import"} onOpenChange={(o) => !o && setMode("none")}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="font-display">Import Wallet</DialogTitle>
+              <DialogTitle>Import Wallet</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Enter your 12 or 24-word seed phrase separated by spaces.</p>
-              <textarea
-                value={importSeed}
-                onChange={e => setImportSeed(e.target.value)}
-                placeholder="word1 word2 word3 ..."
-                className="w-full h-24 rounded-md border border-input bg-card px-3 py-2 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                data-testid="textarea-import-seed"
-              />
-              <Button className="w-full" onClick={importWallet} data-testid="button-confirm-import">
-                Import Wallet
-              </Button>
+              <div>
+                <Label htmlFor="seed-input">Seed Phrase (12 or 24 words)</Label>
+                <textarea
+                  id="seed-input"
+                  className="w-full mt-1.5 px-3 py-2.5 rounded-sm border border-border bg-secondary text-sm font-mono resize-none h-24 focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Enter your seed phrase separated by spaces..."
+                  value={importPhrase}
+                  onChange={e => setImportPhrase(e.target.value)}
+                  data-testid="input-seed-phrase"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setMode("none")} className="flex-1">Cancel</Button>
+                <Button onClick={confirmImport} className="flex-1" data-testid="button-confirm-import">Import</Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -197,100 +216,95 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
-      <div className="border-b border-border/50 px-6 py-4">
+    <div className="flex flex-col min-h-full">
+      <div className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <Wallet className="w-4.5 h-4.5 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm text-muted-foreground" data-testid="wallet-address">{shortAddress(address)}</span>
-                <button onClick={() => copy(address)} data-testid="button-copy-address" className="p-0.5 rounded text-muted-foreground">
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                <span className="text-xs text-muted-foreground capitalize">{network}</span>
-              </div>
-            </div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="font-semibold">Zerith Wallet</h1>
+            {isDemoWallet && (
+              <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 border text-xs">
+                <Gem className="w-3 h-3 mr-1" />Genesis
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant={network === "mainnet" ? "default" : "outline"}
-              size="sm"
-              onClick={() => switchNetwork("mainnet")}
-              data-testid="button-mainnet"
-            >
-              Mainnet
-            </Button>
-            <Button
-              variant={network === "testnet" ? "default" : "outline"}
-              size="sm"
-              onClick={() => switchNetwork("testnet")}
-              data-testid="button-testnet"
-            >
-              Testnet
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => refetch()} data-testid="button-refresh">
+            <div className="relative">
+              <Button variant="outline" size="sm" onClick={() => setNetworkOpen(!networkOpen)} data-testid="button-network-switch">
+                <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${network === "mainnet" ? "bg-green-400" : "bg-yellow-400"}`} />
+                <span className="capitalize text-xs">{network}</span>
+                <ChevronDown className="w-3.5 h-3.5 ml-1" />
+              </Button>
+              {networkOpen && (
+                <div className="absolute right-0 top-full mt-1 w-36 bg-popover border border-border rounded-sm shadow-lg z-50">
+                  {(["mainnet", "testnet"] as Network[]).map(n => (
+                    <button key={n} onClick={() => switchNetwork(n)} className="flex items-center justify-between w-full px-3 py-2 text-sm hover:bg-accent transition-colors" data-testid={`option-network-${n}`}>
+                      <span className="capitalize">{n}</span>
+                      {network === n && <Check className="w-3.5 h-3.5 text-green-400" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => refetch()} data-testid="button-refresh">
               <RefreshCw className="w-4 h-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => { setAddress(null); localStorage.removeItem("zerith-wallet-address"); }}
-              data-testid="button-disconnect"
-            >
+            <Button variant="ghost" size="sm" onClick={disconnect} data-testid="button-disconnect" className="text-xs text-muted-foreground">
               Disconnect
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="p-6 space-y-6 flex-1 overflow-auto">
-        <Card className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-transparent pointer-events-none" />
-          <CardContent className="p-6">
+      <div className="p-6 space-y-5 max-w-2xl">
+        <Card>
+          <CardContent className="p-5">
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">ZTH Balance</div>
-                {isLoading ? (
-                  <Skeleton className="h-10 w-48" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Balance</span>
+                  <button onClick={() => setShowBalance(!showBalance)} className="text-muted-foreground hover:text-foreground" data-testid="button-toggle-balance">
+                    {showBalance ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                {walletLoading ? (
+                  <Skeleton className="h-9 w-48" />
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="font-display text-4xl font-bold text-foreground" data-testid="wallet-balance">
-                      {showBalance ? formatZTH(wallet?.balance ?? "0") : "••••• ZTH"}
-                    </span>
-                    <button onClick={() => setShowBalance(v => !v)} className="p-1 text-muted-foreground" data-testid="button-toggle-balance">
-                      {showBalance ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                  <div className="text-3xl font-bold font-mono" data-testid="wallet-balance">
+                    {showBalance ? formatZTH(walletInfo?.balance ?? "0") : "••••••••"}
                   </div>
                 )}
-                {wallet && (
-                  <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Shield className="w-3.5 h-3.5 text-purple-400" />
-                      Staked: <span className="text-purple-400 font-medium ml-1">{formatZTH(wallet.stakedBalance)}</span>
-                    </span>
+                {walletInfo?.stakedBalance && parseFloat(walletInfo.stakedBalance) > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Staked: {formatZTH(walletInfo.stakedBalance)}
                   </div>
                 )}
               </div>
-              <Badge variant="secondary" className="text-xs capitalize">{network}</Badge>
+              <div className="flex-shrink-0 w-12 h-12 rounded-sm bg-secondary flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-muted-foreground" />
+              </div>
             </div>
 
-            <div className="flex gap-3 mt-5">
+            <div className="mt-4 flex items-center gap-2">
+              <code className="flex-1 text-xs font-mono text-muted-foreground truncate bg-secondary/60 px-2.5 py-1.5 rounded-sm" data-testid="wallet-address">{address}</code>
+              <button onClick={copyAddress} className="flex-shrink-0 p-1.5 text-muted-foreground hover:text-foreground rounded-sm bg-secondary/60" data-testid="button-copy-address">
+                {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+              <Link href={`/explorer/address/${address}`} data-testid="link-view-on-explorer">
+                <button className="flex-shrink-0 p-1.5 text-muted-foreground hover:text-foreground rounded-sm bg-secondary/60">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+              </Link>
+            </div>
+
+            <div className="mt-4 flex gap-2">
               <Button asChild className="flex-1" data-testid="button-send">
                 <Link href="/wallet/send">
-                  <Send className="w-4 h-4 mr-1.5" />
-                  Send
+                  <Send className="w-4 h-4 mr-2" />Send
                 </Link>
               </Button>
-              <Button asChild variant="secondary" className="flex-1" data-testid="button-receive">
+              <Button asChild variant="outline" className="flex-1" data-testid="button-receive">
                 <Link href="/wallet/receive">
-                  <ArrowDownLeft className="w-4 h-4 mr-1.5" />
-                  Receive
+                  <ArrowDownLeft className="w-4 h-4 mr-2" />Receive
                 </Link>
               </Button>
             </div>
@@ -299,18 +313,18 @@ export default function WalletPage() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              Recent Transactions
-              {isLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Recent Transactions</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 mb-2" />)
-            ) : wallet?.transactions.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">No transactions yet</div>
+            {walletLoading ? (
+              Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 mb-1" />)
+            ) : !walletInfo?.transactions?.length ? (
+              <div className="py-8 text-center">
+                <div className="text-sm text-muted-foreground">No transactions yet</div>
+                <div className="text-xs text-muted-foreground mt-1">Your transaction history will appear here</div>
+              </div>
             ) : (
-              wallet?.transactions.slice(0, 10).map(tx => <TxRow key={tx.hash} tx={tx} />)
+              walletInfo.transactions.slice(0, 8).map((tx: Transaction) => <TxRow key={tx.hash} tx={tx} />)
             )}
           </CardContent>
         </Card>

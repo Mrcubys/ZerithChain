@@ -1,5 +1,4 @@
 import { type Block, type Transaction, type Validator, type NetworkStatus } from "@shared/schema";
-import { randomBytes } from "crypto";
 
 function hexHash(seed: string): string {
   let hash = 0;
@@ -25,6 +24,41 @@ function zthAddress(seed: string): string {
 function randomAmount(min: number, max: number): string {
   return (Math.random() * (max - min) + min).toFixed(4);
 }
+
+export const GENESIS_CONFIG = {
+  chainId: "zerith-mainnet-1",
+  genesisTime: "2026-03-10T00:00:00Z",
+  initialSupply: "1000000000",
+  symbol: "ZTH",
+  decimals: 18,
+  developerWallets: [
+    {
+      address: "zth1dev0000000000000000000000000000000000",
+      name: "Genesis Dev Wallet",
+      balance: "10000000.0000",
+      seedPhrase: "abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid acoustic acquire across action actor actress actual adapt",
+    },
+    {
+      address: "zth1dev1111111111111111111111111111111111",
+      name: "Foundation Reserve",
+      balance: "50000000.0000",
+      seedPhrase: "address adjust admit adult advance advice aerobic afford afraid again agent agree ahead alarm album alcohol alert alien alter always amateur amazing among amount",
+    },
+    {
+      address: "zth1dev2222222222222222222222222222222222",
+      name: "Ecosystem Fund",
+      balance: "100000000.0000",
+      seedPhrase: "amused analyst anchor ancient anger angle angry animal answer antenna antique anxiety apart appear apple approve april arctic arena argue armed armor army around",
+    },
+  ],
+  networkParameters: {
+    minValidatorStake: "50000",
+    blockTime: 2,
+    maxValidators: 100,
+    slashingEnabled: true,
+    delegationEnabled: true,
+  },
+};
 
 const VALIDATOR_NAMES = [
   "Zerith Foundation", "NovaStar Validation", "CryptoGuard Node", "AlphaStake Pool",
@@ -209,8 +243,32 @@ export class BlockchainStorage {
     return this.transactions.filter(t => t.blockHeight === height);
   }
 
+  isDeveloperWallet(address: string): boolean {
+    return GENESIS_CONFIG.developerWallets.some(w => w.address === address);
+  }
+
+  getDeveloperWallet(address: string) {
+    return GENESIS_CONFIG.developerWallets.find(w => w.address === address);
+  }
+
   getAddressInfo(address: string) {
+    const devWallet = this.getDeveloperWallet(address);
     const txs = this.getTransactionsByAddress(address, 50);
+    const validator = this.validators.find(v => v.address === address);
+
+    if (devWallet) {
+      return {
+        address,
+        balance: devWallet.balance,
+        stakedBalance: validator ? validator.stake : "0.0000",
+        nonce: txs.filter(t => t.from === address).length,
+        transactions: txs,
+        isValidator: !!validator,
+        isDeveloper: true,
+        walletName: devWallet.name,
+      };
+    }
+
     let balance = 0;
     txs.forEach(tx => {
       const amt = parseFloat(tx.amount);
@@ -218,14 +276,15 @@ export class BlockchainStorage {
       if (tx.from === address && tx.status === "success") balance -= amt + parseFloat(tx.gasFee);
     });
 
-    const validator = this.validators.find(v => v.address === address);
     return {
       address,
-      balance: Math.max(0, balance + 50000 + Math.random() * 100000).toFixed(4),
+      balance: Math.max(0, balance).toFixed(4),
       stakedBalance: validator ? validator.stake : "0.0000",
       nonce: txs.filter(t => t.from === address).length,
       transactions: txs,
       isValidator: !!validator,
+      isDeveloper: false,
+      walletName: null,
     };
   }
 
@@ -263,10 +322,7 @@ export class BlockchainStorage {
 
   getWallet(address: string, network: string) {
     const info = this.getAddressInfo(address);
-    return {
-      ...info,
-      network,
-    };
+    return { ...info, network };
   }
 
   submitTransaction(from: string, to: string, amount: string, network: string): Transaction {
@@ -303,6 +359,10 @@ export class BlockchainStorage {
       if (block) return { type: "block", data: block };
     }
     return { type: "not_found", data: null };
+  }
+
+  getGenesisConfig() {
+    return GENESIS_CONFIG;
   }
 }
 
