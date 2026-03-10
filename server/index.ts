@@ -8,8 +8,8 @@ const httpServer = createServer(app);
 
 app.use((req, res, next) => {
   const allowedOrigins = [
-    process.env.ZENITHSCAN_URL,
-    process.env.ZENITHSCAN_ORIGIN,
+    process.env.ZERITHSCAN_URL,
+    process.env.ZERITHSCAN_ORIGIN,
   ].filter(Boolean);
 
   const origin = req.headers.origin;
