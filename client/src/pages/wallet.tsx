@@ -4,23 +4,24 @@ import { useQuery } from "@tanstack/react-query";
 import type { Transaction } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
   generateSeedWords, generateAddress, formatZTH, formatCompact,
-  DEVELOPER_WALLET_ADDRESS, timeAgo,
+  timeAgo,
   deriveEvmAddress, deriveSolanaAddress,
   loadCustomTokens, saveCustomTokens,
   type CustomToken, SUPPORTED_NETWORKS,
 } from "@/lib/chain-utils";
+import { saveSeedPhrase } from "@/lib/pin-security";
+import { PinLock } from "@/components/pin-lock";
 import { AddTokenModal } from "@/components/add-token-modal";
 import { SiEthereum, SiSolana } from "react-icons/si";
 import {
-  Wallet, Copy, Eye, EyeOff, Send, ArrowDownLeft, Plus,
-  Download, Gem, ChevronDown, Check, ExternalLink, ArrowRight,
+  Copy, Eye, EyeOff, Send, ArrowDownLeft, Plus,
+  Download, ChevronDown, Check, ExternalLink,
   TrendingUp, RefreshCw, Trash2,
 } from "lucide-react";
 
@@ -29,7 +30,7 @@ const zerithLogoPath = "/zerith-logo.png";
 const STORAGE_ADDRESS_KEY = "zerith-wallet-address";
 const STORAGE_NETWORK_KEY = "zerith-network";
 type Network = "mainnet" | "testnet";
-type WalletMode = "none" | "create" | "import";
+type WalletMode = "none" | "create" | "import" | "pin-setup";
 type ChainTab = "zerith" | "evm" | "solana";
 
 function NetworkBadge({ network }: { network: string }) {
@@ -103,8 +104,8 @@ export default function WalletPage() {
   const [chainTab, setChainTab] = useState<ChainTab>("zerith");
   const [addTokenOpen, setAddTokenOpen] = useState(false);
   const [tokens, setTokens] = useState<CustomToken[]>([]);
-
-  const isDemoWallet = address === DEVELOPER_WALLET_ADDRESS;
+  const [pendingAddress, setPendingAddress] = useState<string | null>(null);
+  const [pendingSeed, setPendingSeed] = useState<string | null>(null);
   const evmAddress = address ? deriveEvmAddress(address) : "";
   const solanaAddress = address ? deriveSolanaAddress(address) : "";
 
@@ -129,11 +130,11 @@ export default function WalletPage() {
   const openCreate = () => { setSeedWords(generateSeedWords()); setSeedConfirmed(false); setMode("create"); };
 
   const confirmCreate = () => {
-    const addr = generateAddress(seedWords.join(" ") + Date.now());
-    setAddress(addr);
-    localStorage.setItem(STORAGE_ADDRESS_KEY, addr);
-    setMode("none");
-    toast({ title: "Wallet created", description: "Balance starts at 0 ZTH." });
+    const seed = seedWords.join(" ");
+    const addr = generateAddress(seed + Date.now());
+    setPendingAddress(addr);
+    setPendingSeed(seed);
+    setMode("pin-setup");
   };
 
   const confirmImport = () => {
@@ -142,17 +143,22 @@ export default function WalletPage() {
       toast({ title: "Invalid phrase", description: "Please enter a 12 or 24-word seed phrase.", variant: "destructive" });
       return;
     }
-    const addr = generateAddress(importPhrase.trim());
-    setAddress(addr);
-    localStorage.setItem(STORAGE_ADDRESS_KEY, addr);
-    setMode("none");
-    toast({ title: "Wallet imported" });
+    const seed = importPhrase.trim();
+    const addr = generateAddress(seed);
+    setPendingAddress(addr);
+    setPendingSeed(seed);
+    setMode("pin-setup");
   };
 
-  const loadDemo = () => {
-    setAddress(DEVELOPER_WALLET_ADDRESS);
-    localStorage.setItem(STORAGE_ADDRESS_KEY, DEVELOPER_WALLET_ADDRESS);
-    toast({ title: "Demo wallet loaded", description: "Genesis developer wallet with 10,000,000 ZTH." });
+  const finishWalletSetup = () => {
+    if (!pendingAddress) return;
+    if (pendingSeed) saveSeedPhrase(pendingAddress, pendingSeed);
+    setAddress(pendingAddress);
+    localStorage.setItem(STORAGE_ADDRESS_KEY, pendingAddress);
+    setMode("none");
+    setPendingAddress(null);
+    setPendingSeed(null);
+    toast({ title: "Wallet ready", description: "Secured with your passkey." });
   };
 
   const disconnect = () => { setAddress(null); localStorage.removeItem(STORAGE_ADDRESS_KEY); };
@@ -193,11 +199,22 @@ export default function WalletPage() {
   };
 
   if (!address) {
+    if (mode === "pin-setup" && pendingAddress) {
+      return (
+        <PinLock
+          mode="setup"
+          setupTitle="Secure Your Wallet"
+          onSuccess={finishWalletSetup}
+          onCancel={() => { setPendingAddress(null); setPendingSeed(null); setMode("none"); }}
+        />
+      );
+    }
+
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <div className="px-5 pt-8 pb-6 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
-            <Wallet className="w-8 h-8 text-primary" />
+          <div className="w-20 h-20 rounded-2xl overflow-hidden mx-auto mb-5 border border-border/40 shadow-sm">
+            <img src={zerithLogoPath} alt="Zerith" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-semibold text-foreground">Zerith Wallet</h1>
           <p className="text-muted-foreground text-sm mt-1.5">Your multi-chain gateway</p>
@@ -210,21 +227,6 @@ export default function WalletPage() {
           <Button variant="outline" className="w-full h-12 rounded-xl border-border" onClick={() => setMode("import")} data-testid="button-import-wallet">
             <Download className="w-4 h-4 mr-2" />Import with Seed Phrase
           </Button>
-          <div className="flex items-center gap-3 my-4">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">or</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
-          <button onClick={loadDemo} className="w-full flex items-center gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors" data-testid="button-demo-wallet">
-            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-              <Gem className="w-5 h-5 text-amber-500" />
-            </div>
-            <div className="text-left">
-              <div className="text-sm font-semibold text-amber-900">Genesis Dev Wallet</div>
-              <div className="text-xs text-amber-600">10,000,000 ZTH preloaded</div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-amber-500 ml-auto" />
-          </button>
         </div>
 
         <Dialog open={mode === "create"} onOpenChange={(o) => !o && setMode("none")}>
@@ -287,11 +289,6 @@ export default function WalletPage() {
       <div className="bg-primary px-5 pt-10 pb-16">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            {isDemoWallet && (
-              <Badge className="bg-white/20 text-white border-0 text-xs backdrop-blur-sm">
-                <Gem className="w-3 h-3 mr-1" />Genesis
-              </Badge>
-            )}
             <div className="relative">
               <button onClick={() => setNetworkOpen(!networkOpen)} className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1 text-white text-xs" data-testid="button-network-switch">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-300" />

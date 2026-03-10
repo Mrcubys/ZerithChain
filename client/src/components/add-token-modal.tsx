@@ -6,6 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { SUPPORTED_NETWORKS, type CustomToken, formatTokenBalance } from "@/lib/chain-utils";
 import { Search, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import {
+  SiEthereum, SiBinance, SiPolygon, SiSolana,
+} from "react-icons/si";
 
 interface TokenInfo {
   name: string;
@@ -25,6 +28,21 @@ interface Props {
   evmAddress: string;
   solanaAddress: string;
   onAdd: (token: CustomToken) => void;
+}
+
+function NetworkIcon({ networkId, color, size = 16 }: { networkId: string; color: string; size?: number }) {
+  const cls = `flex-shrink-0`;
+  const style = { width: size, height: size };
+  if (networkId === "ethereum") return <SiEthereum style={{ ...style, color: "#627EEA" }} className={cls} />;
+  if (networkId === "binance-smart-chain") return <SiBinance style={{ ...style, color: "#F3BA2F" }} className={cls} />;
+  if (networkId === "polygon-pos") return <SiPolygon style={{ ...style, color: "#8247E5" }} className={cls} />;
+  if (networkId === "solana") return <SiSolana style={{ ...style, color: "#9945FF" }} className={cls} />;
+  return (
+    <span
+      className="rounded-full flex-shrink-0 inline-block"
+      style={{ width: size, height: size, background: color }}
+    />
+  );
 }
 
 export function AddTokenModal({ open, onClose, walletAddress, evmAddress, solanaAddress, onAdd }: Props) {
@@ -119,10 +137,7 @@ export function AddTokenModal({ open, onClose, walletAddress, evmAddress, solana
                 data-testid="select-network"
               >
                 <div className="flex items-center gap-2">
-                  <span
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ background: selectedNetwork.color }}
-                  />
+                  <NetworkIcon networkId={selectedNetwork.id} color={selectedNetwork.color} size={16} />
                   <span>{selectedNetwork.label}</span>
                   <span className="text-muted-foreground text-xs">({selectedNetwork.symbol})</span>
                 </div>
@@ -137,7 +152,7 @@ export function AddTokenModal({ open, onClose, walletAddress, evmAddress, solana
                       className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-muted/50 transition-colors ${n.id === network ? "bg-muted/50 font-medium" : ""}`}
                       data-testid={`option-network-${n.id}`}
                     >
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: n.color }} />
+                      <NetworkIcon networkId={n.id} color={n.color} size={16} />
                       <span>{n.label}</span>
                       <span className="text-muted-foreground text-xs ml-auto">{n.symbol}</span>
                     </button>
@@ -207,7 +222,7 @@ export function AddTokenModal({ open, onClose, walletAddress, evmAddress, solana
                 {preview.logoUrl ? (
                   <img src={preview.logoUrl} alt={preview.symbol} className="w-10 h-10 rounded-full object-cover border border-border flex-shrink-0" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: selectedNetwork.color + "20", color: selectedNetwork.color }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: selectedNetwork.color + "20", color: selectedNetwork.color }}>
                     {preview.symbol.slice(0, 2)}
                   </div>
                 )}
