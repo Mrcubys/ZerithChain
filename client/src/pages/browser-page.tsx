@@ -1,26 +1,89 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, KeyboardEvent } from "react";
 import { useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, RotateCw, X, Lock, Copy, Check, Globe2 } from "lucide-react";
+import {
+  ChevronLeft, ChevronRight, RotateCw, X, Lock,
+  Globe2, Search, Star, Clock, ExternalLink, Plus
+} from "lucide-react";
 
-const BROWSER_TABS = [
-  { label: "Explorer", href: "/explorer", url: "https://zerithscan.replit.com" },
-  { label: "Validators", href: "/validators", url: "https://zerith-validator.replit.com" },
-  { label: "Stake", href: "/stake", url: "https://zerith-stake.replit.com" },
-  { label: "Whitepaper", href: "/whitepaper", url: "https://zerithwhitepaper.replit.com" },
+const ZERITH_TABS = [
+  { label: "Explorer", href: "/explorer", url: "https://zerithscan.replit.com", icon: "🔍" },
+  { label: "Validators", href: "/validators", url: "https://zerith-validator.replit.com", icon: "🛡️" },
+  { label: "Stake", href: "/stake", url: "https://zerith-stake.replit.com", icon: "⚡" },
+  { label: "Whitepaper", href: "/whitepaper", url: "https://zerithwhitepaper.replit.com", icon: "📄" },
 ];
+
+const QUICK_LINKS = [
+  { label: "Google", url: "https://www.google.com", color: "#4285F4" },
+  { label: "Wikipedia", url: "https://www.wikipedia.org", color: "#000000" },
+  { label: "GitHub", url: "https://github.com", color: "#24292f" },
+  { label: "CoinGecko", url: "https://www.coingecko.com", color: "#8DC63F" },
+  { label: "CoinMarketCap", url: "https://coinmarketcap.com", color: "#17C784" },
+  { label: "DefiLlama", url: "https://defillama.com", color: "#2172E5" },
+  { label: "DuckDuckGo", url: "https://duckduckgo.com", color: "#DE5833" },
+  { label: "Reddit", url: "https://www.reddit.com", color: "#FF4500" },
+];
+
+function toProxyUrl(url: string) {
+  return `/api/proxy?url=${encodeURIComponent(url)}`;
+}
+
+function resolveInput(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  if (/^localhost(:\d+)?/.test(trimmed)) return `http://${trimmed}`;
+  if (/^[a-zA-Z0-9-]+(\.[a-zA-Z]{2,})(\/.*)?$/.test(trimmed) && !trimmed.includes(" ")) {
+    return `https://${trimmed}`;
+  }
+  return `https://duckduckgo.com/?q=${encodeURIComponent(trimmed)}`;
+}
+
+function getDisplayUrl(url: string) {
+  try {
+    const u = new URL(url);
+    return u.hostname + (u.pathname !== "/" ? u.pathname : "") + (u.search ? u.search : "");
+  } catch {
+    return url;
+  }
+}
+
+function FaviconImg({ url }: { url: string }) {
+  const [ok, setOk] = useState(true);
+  const faviconUrl = (() => {
+    try {
+      return `https://www.google.com/s2/favicons?sz=32&domain=${new URL(url).hostname}`;
+    } catch {
+      return "";
+    }
+  })();
+  if (!ok || !faviconUrl) return <Globe2 className="w-4 h-4 text-muted-foreground" />;
+  return (
+    <img
+      src={faviconUrl}
+      className="w-4 h-4 rounded-sm object-contain"
+      onError={() => setOk(false)}
+      alt=""
+    />
+  );
+}
 
 export default function BrowserPage() {
   const [location, navigate] = useLocation();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  const activeZerithTab = ZERITH_TABS.find(t => location.startsWith(t.href));
+  const initialUrl = activeZerithTab?.url ?? "";
+
+  const [currentUrl, setCurrentUrl] = useState(initialUrl);
+  const [addressInput, setAddressInput] = useState(getDisplayUrl(initialUrl));
+  const [addressFocused, setAddressFocused] = useState(false);
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [iframeError, setIframeError] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [history, setHistory] = useState<string[]>(initialUrl ? [initialUrl] : []);
+  const [historyIdx, setHistoryIdx] = useState(0);
 
-  const activeTab = BROWSER_TABS.find(t => location.startsWith(t.href)) ?? BROWSER_TABS[0];
-  const displayUrl = activeTab.url;
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const addressRef = useRef<HTMLInputElement>(null);
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach(clearTimeout);
@@ -29,152 +92,211 @@ export default function BrowserPage() {
 
   const startLoading = useCallback(() => {
     clearTimers();
-    setIframeError(false);
     setProgress(0);
     setLoading(true);
-    const t1 = setTimeout(() => setProgress(20), 30);
-    const t2 = setTimeout(() => setProgress(55), 200);
-    const t3 = setTimeout(() => setProgress(80), 600);
+    const t1 = setTimeout(() => setProgress(18), 40);
+    const t2 = setTimeout(() => setProgress(52), 250);
+    const t3 = setTimeout(() => setProgress(78), 700);
     timersRef.current = [t1, t2, t3];
   }, [clearTimers]);
 
   const finishLoading = useCallback(() => {
     clearTimers();
     setProgress(100);
-    const t = setTimeout(() => {
-      setLoading(false);
-      setProgress(0);
-    }, 350);
+    const t = setTimeout(() => { setLoading(false); setProgress(0); }, 380);
     timersRef.current = [t];
   }, [clearTimers]);
 
-  useEffect(() => {
+  const loadUrl = useCallback((url: string, pushHistory = true) => {
+    if (!url) return;
+    setCurrentUrl(url);
+    setAddressInput(getDisplayUrl(url));
     startLoading();
-    return clearTimers;
-  }, [activeTab.url]);
+    if (pushHistory) {
+      setHistory(prev => {
+        const trimmed = prev.slice(0, historyIdx + 1);
+        return [...trimmed, url];
+      });
+      setHistoryIdx(prev => prev + 1);
+    }
+  }, [historyIdx, startLoading]);
 
-  const handleIframeLoad = () => {
-    finishLoading();
+  useEffect(() => {
+    const newZerith = ZERITH_TABS.find(t => location.startsWith(t.href));
+    if (newZerith && newZerith.url !== currentUrl) {
+      loadUrl(newZerith.url);
+    }
+  }, [location]);
+
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data && e.data.zerithBrowser === true && e.data.type === "NAVIGATE") {
+        const url = e.data.url as string;
+        if (url) loadUrl(url);
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [loadUrl]);
+
+  const canGoBack = historyIdx > 0;
+  const canGoForward = historyIdx < history.length - 1;
+
+  const goBack = () => {
+    if (!canGoBack) return;
+    const newIdx = historyIdx - 1;
+    setHistoryIdx(newIdx);
+    const url = history[newIdx];
+    setCurrentUrl(url);
+    setAddressInput(getDisplayUrl(url));
+    startLoading();
   };
 
-  const handleIframeError = () => {
-    finishLoading();
-    setIframeError(true);
+  const goForward = () => {
+    if (!canGoForward) return;
+    const newIdx = historyIdx + 1;
+    setHistoryIdx(newIdx);
+    const url = history[newIdx];
+    setCurrentUrl(url);
+    setAddressInput(getDisplayUrl(url));
+    startLoading();
   };
 
-  const handleRefresh = () => {
-    setIframeError(false);
+  const refresh = () => {
+    if (!currentUrl) return;
     startLoading();
     if (iframeRef.current) {
-      iframeRef.current.src = activeTab.url;
+      iframeRef.current.src = toProxyUrl(currentUrl);
     }
   };
 
-  const handleBack = () => {
-    try {
-      iframeRef.current?.contentWindow?.history.back();
-    } catch {
-      window.history.back();
+  const stopLoading = () => {
+    finishLoading();
+    if (iframeRef.current) {
+      try { iframeRef.current.contentWindow?.stop(); } catch {}
     }
   };
 
-  const handleForward = () => {
-    try {
-      iframeRef.current?.contentWindow?.history.forward();
-    } catch {}
+  const handleAddressKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      const url = resolveInput(addressInput);
+      if (url) {
+        addressRef.current?.blur();
+        loadUrl(url);
+      }
+    } else if (e.key === "Escape") {
+      setAddressInput(getDisplayUrl(currentUrl));
+      addressRef.current?.blur();
+    }
   };
 
-  const copyUrl = () => {
-    navigator.clipboard.writeText(displayUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
-  };
+  const proxyUrl = currentUrl ? toProxyUrl(currentUrl) : "";
+
+  const isHttps = currentUrl.startsWith("https://");
+
+  const zerithTabForUrl = ZERITH_TABS.find(t => t.url === currentUrl);
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-4rem)] md:h-dvh overflow-hidden bg-background">
-      <div className="flex-shrink-0 bg-background border-b border-border">
-        <div className="px-4 pt-8 pb-1.5 flex items-center gap-2">
-          <Globe2 className="w-4 h-4 text-primary flex-shrink-0" />
-          <h1 className="text-base font-semibold">Browser</h1>
-        </div>
+    <div
+      className="flex flex-col overflow-hidden bg-[#f0f2f5] dark:bg-[#1a1a1a]"
+      style={{ height: "calc(100dvh - 4rem)" }}
+    >
+      <div className="flex-shrink-0 bg-white dark:bg-[#202124] border-b border-[#e0e0e0] dark:border-[#3c4043] shadow-sm">
+        <div className="flex items-center gap-0 px-2 pt-2 pb-1">
+          <button
+            onClick={goBack}
+            disabled={!canGoBack}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-default text-[#5f6368]"
+            data-testid="browser-back"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            onClick={goForward}
+            disabled={!canGoForward}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-default text-[#5f6368]"
+            data-testid="browser-forward"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+          <button
+            onClick={loading ? stopLoading : refresh}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[#5f6368]"
+            data-testid="browser-refresh"
+          >
+            {loading ? <X className="w-4 h-4" /> : <RotateCw className="w-4 h-4" />}
+          </button>
 
-        <div className="px-3 pb-2 flex items-center gap-1.5">
-          <div className="flex items-center gap-0.5 flex-shrink-0">
-            <button
-              onClick={handleBack}
-              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground"
-              data-testid="browser-back"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleForward}
-              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground"
-              data-testid="browser-forward"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleRefresh}
-              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground"
-              data-testid="browser-refresh"
-            >
-              {loading
-                ? <X className="w-3.5 h-3.5" />
-                : <RotateCw className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-
-          <div className="flex-1 flex items-center gap-2 bg-muted/60 hover:bg-muted border border-border/60 rounded-xl px-3 py-1.5 min-w-0 transition-colors group cursor-default">
-            <Lock className="w-3 h-3 text-green-600 flex-shrink-0" />
-            <span
-              className="text-xs font-mono flex-1 truncate text-foreground/80 select-all"
-              data-testid="browser-url"
-            >
-              {displayUrl}
+          <div
+            className={`flex-1 mx-2 flex items-center gap-1.5 h-8 rounded-full border px-3 transition-all cursor-text ${
+              addressFocused
+                ? "bg-white dark:bg-[#303134] border-primary shadow-[0_0_0_2px_rgba(90,200,250,0.3)]"
+                : "bg-[#f1f3f4] dark:bg-[#303134] border-transparent hover:border-[#dadce0]"
+            }`}
+            onClick={() => { addressRef.current?.focus(); addressRef.current?.select(); }}
+          >
+            <span className="flex-shrink-0">
+              {currentUrl ? (
+                isHttps
+                  ? <Lock className="w-3 h-3 text-[#188038]" />
+                  : <Globe2 className="w-3 h-3 text-[#5f6368]" />
+              ) : (
+                <Search className="w-3 h-3 text-[#5f6368]" />
+              )}
             </span>
-            <button
-              onClick={copyUrl}
-              className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
-              data-testid="browser-copy-url"
-            >
-              {copied
-                ? <Check className="w-3 h-3 text-green-500" />
-                : <Copy className="w-3 h-3" />}
-            </button>
+            <input
+              ref={addressRef}
+              className="flex-1 min-w-0 text-xs bg-transparent outline-none text-[#202124] dark:text-white placeholder:text-[#5f6368] font-mono"
+              value={addressFocused ? addressInput : (addressInput || "")}
+              onChange={e => setAddressInput(e.target.value)}
+              onFocus={() => { setAddressFocused(true); setTimeout(() => addressRef.current?.select(), 0); }}
+              onBlur={() => { setAddressFocused(false); if (currentUrl) setAddressInput(getDisplayUrl(currentUrl)); }}
+              onKeyDown={handleAddressKeyDown}
+              placeholder="Search or enter website URL"
+              spellCheck={false}
+              autoComplete="off"
+              data-testid="browser-url"
+            />
           </div>
+
+          <a
+            href={currentUrl || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[#5f6368] ${!currentUrl ? "opacity-30 pointer-events-none" : ""}`}
+            data-testid="browser-open-external"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
         </div>
 
-        <div className="h-0.5 mx-3 rounded-full overflow-hidden bg-transparent mb-0">
+        <div className="h-[3px] relative overflow-hidden">
           {loading && (
             <div
-              className="h-full bg-primary rounded-full transition-all ease-out"
+              className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all ease-out"
               style={{
                 width: `${progress}%`,
-                transitionDuration:
-                  progress === 0 ? "0ms"
-                  : progress <= 20 ? "80ms"
-                  : progress <= 55 ? "220ms"
-                  : "400ms",
+                transitionDuration: progress <= 18 ? "100ms" : progress <= 52 ? "250ms" : "500ms",
               }}
             />
           )}
         </div>
 
-        <div className="flex overflow-x-auto border-t border-border/40">
-          {BROWSER_TABS.map((tab) => {
+        <div className="flex overflow-x-auto border-t border-[#e8eaed] dark:border-[#3c4043]">
+          {ZERITH_TABS.map(tab => {
             const active = location.startsWith(tab.href);
             return (
               <button
                 key={tab.label}
-                onClick={() => navigate(tab.href)}
-                className={`px-4 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors flex-shrink-0 ${
+                onClick={() => { navigate(tab.href); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium whitespace-nowrap border-b-2 transition-colors flex-shrink-0 ${
                   active
                     ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    : "border-transparent text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] dark:hover:text-white hover:bg-black/4"
                 }`}
                 data-testid={`browser-tab-${tab.label.toLowerCase()}`}
               >
+                <span>{tab.icon}</span>
                 {tab.label}
               </button>
             );
@@ -182,38 +304,111 @@ export default function BrowserPage() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 relative">
-        {iframeError ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-              <Globe2 className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <div className="space-y-1">
-              <p className="font-semibold text-sm text-foreground">Site can't be reached</p>
-              <p className="text-xs text-muted-foreground max-w-xs">{displayUrl}</p>
-            </div>
-            <button
-              onClick={handleRefresh}
-              className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-              data-testid="browser-retry"
-            >
-              <RotateCw className="w-3.5 h-3.5" />
-              Try again
-            </button>
-          </div>
+      <div className="flex-1 min-h-0 relative bg-white dark:bg-[#202124]">
+        {!currentUrl ? (
+          <NewTabPage onNavigate={loadUrl} />
         ) : (
           <iframe
             ref={iframeRef}
-            key={activeTab.url}
-            src={activeTab.url}
+            key={currentUrl}
+            src={proxyUrl}
             className="w-full h-full border-0"
-            onLoad={handleIframeLoad}
-            onError={handleIframeError}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            onLoad={finishLoading}
+            onError={finishLoading}
+            title="browser"
             data-testid="browser-iframe"
-            title={activeTab.label}
+            referrerPolicy="no-referrer"
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+function NewTabPage({ onNavigate }: { onNavigate: (url: string) => void }) {
+  const [q, setQ] = useState("");
+
+  const handleSearch = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && q.trim()) {
+      onNavigate(resolveInput(q));
+      setQ("");
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center pt-10 px-6 pb-6 h-full bg-white dark:bg-[#202124] overflow-y-auto">
+      <div className="w-full max-w-lg">
+        <div className="flex items-center justify-center mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
+              <Globe2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-[#202124] dark:text-white">Zerith Browser</div>
+              <div className="text-xs text-[#5f6368]">Search the web or enter a URL</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 bg-[#f1f3f4] dark:bg-[#303134] rounded-full px-4 py-2.5 mb-6 border border-transparent focus-within:border-primary focus-within:bg-white dark:focus-within:bg-[#303134] focus-within:shadow-[0_0_0_2px_rgba(90,200,250,0.3)] transition-all">
+          <Search className="w-4 h-4 text-[#5f6368] flex-shrink-0" />
+          <input
+            autoFocus
+            className="flex-1 text-sm bg-transparent outline-none text-[#202124] dark:text-white placeholder:text-[#5f6368]"
+            placeholder="Search with DuckDuckGo or enter address"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            onKeyDown={handleSearch}
+            data-testid="newtab-search"
+          />
+        </div>
+
+        <div className="mb-5">
+          <div className="flex items-center gap-1.5 mb-3">
+            <Star className="w-3.5 h-3.5 text-[#5f6368]" />
+            <span className="text-xs font-semibold text-[#5f6368] uppercase tracking-wider">Zerith Sites</span>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {ZERITH_TABS.map(tab => (
+              <button
+                key={tab.label}
+                onClick={() => onNavigate(tab.url)}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl hover:bg-[#f1f3f4] dark:hover:bg-[#303134] transition-colors group"
+                data-testid={`newtab-zerith-${tab.label.toLowerCase()}`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-xl group-hover:bg-primary/20 transition-colors">
+                  {tab.icon}
+                </div>
+                <span className="text-[10px] text-[#5f6368] font-medium">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-1.5 mb-3">
+            <Clock className="w-3.5 h-3.5 text-[#5f6368]" />
+            <span className="text-xs font-semibold text-[#5f6368] uppercase tracking-wider">Quick Access</span>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {QUICK_LINKS.map(link => (
+              <button
+                key={link.label}
+                onClick={() => onNavigate(link.url)}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl hover:bg-[#f1f3f4] dark:hover:bg-[#303134] transition-colors"
+                data-testid={`newtab-quick-${link.label.toLowerCase().replace(/\s+/g, "-")}`}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold"
+                  style={{ backgroundColor: link.color }}
+                >
+                  {link.label[0]}
+                </div>
+                <span className="text-[10px] text-[#5f6368] font-medium">{link.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
