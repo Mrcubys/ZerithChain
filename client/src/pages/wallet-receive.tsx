@@ -51,7 +51,7 @@ export default function WalletReceive() {
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/wallet"><ArrowLeft className="w-4 h-4 mr-1" />Wallet</Link>
+            <Link href="/"><ArrowLeft className="w-4 h-4 mr-1" />Wallet</Link>
           </Button>
           <Separator orientation="vertical" className="h-4" />
           <ArrowDownLeft className="w-4 h-4 text-muted-foreground" />

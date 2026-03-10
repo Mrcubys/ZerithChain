@@ -4,6 +4,7 @@ import type { Block, Transaction } from "@shared/schema";
 import { BlockRow } from "@/components/block-row";
 import { TxRow } from "@/components/tx-row";
 import { SearchBar } from "@/components/search-bar";
+import { BrowserSubNav } from "@/components/wallet-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,10 +33,14 @@ export default function Explorer() {
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="border-b border-border px-6 py-6">
-        <h1 className="text-xl font-semibold text-foreground">Block Explorer</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Browse blocks, transactions, and addresses on Zerith Chain</p>
-        <div className="mt-4 max-w-2xl">
+      <div className="bg-background border-b border-border px-5 pt-10 pb-0 sticky top-0 z-10">
+        <h1 className="text-xl font-semibold mb-4">Browser</h1>
+        <BrowserSubNav />
+      </div>
+      <div className="border-b border-border px-5 py-4">
+        <h2 className="text-sm font-semibold text-foreground">Block Explorer</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">Browse blocks, transactions, and addresses</p>
+        <div className="mt-3 max-w-2xl">
           <SearchBar />
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import type { Validator } from "@shared/schema";
+import { BrowserSubNav } from "@/components/wallet-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,11 +26,15 @@ export default function Validators() {
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="border-b border-border px-6 py-6">
+      <div className="bg-background border-b border-border px-5 pt-10 pb-0 sticky top-0 z-10">
+        <h1 className="text-xl font-semibold mb-4">Browser</h1>
+        <BrowserSubNav />
+      </div>
+      <div className="border-b border-border px-5 py-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-xl font-semibold">Validators</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Global Zerith Chain validator network</p>
+            <h2 className="text-sm font-semibold">Validators</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Global Zerith Chain validator network</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

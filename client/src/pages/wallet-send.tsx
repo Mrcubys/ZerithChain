@@ -68,7 +68,7 @@ export default function WalletSend() {
         <div className="border-b border-border/50 px-6 py-5">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/wallet"><ArrowLeft className="w-4 h-4 mr-1" />Wallet</Link>
+              <Link href="/"><ArrowLeft className="w-4 h-4 mr-1" />Wallet</Link>
             </Button>
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function WalletSend() {
                   <Link href={`/explorer/tx/${txResult.hash}`} data-testid="button-view-tx">View Transaction</Link>
                 </Button>
                 <Button asChild className="flex-1">
-                  <Link href="/wallet" data-testid="button-back-to-wallet">Back to Wallet</Link>
+                  <Link href="/" data-testid="button-back-to-wallet">Back to Wallet</Link>
                 </Button>
               </div>
             </CardContent>
@@ -123,7 +123,7 @@ export default function WalletSend() {
       <div className="border-b border-border/50 px-6 py-5">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/wallet"><ArrowLeft className="w-4 h-4 mr-1" />Wallet</Link>
+            <Link href="/"><ArrowLeft className="w-4 h-4 mr-1" />Wallet</Link>
           </Button>
           <Separator orientation="vertical" className="h-4" />
           <Send className="w-5 h-5 text-primary" />

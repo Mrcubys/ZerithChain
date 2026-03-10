@@ -1,0 +1,135 @@
+Redesign the **Zerith Wallet UI/UX** to include a **built-in wallet browser** and move all staking functionality into the **Browser menu**, removing it from the Wallet tab. Ensure professional **OKX-style design**, white/light blue theme, and real ZTH QR code functionality.
+
+---
+
+### 1. Layout & Navigation
+
+* **Bottom navigation bar (mobile) / Sidebar (desktop):**
+
+  * **Wallet** – asset balances, portfolio, QR code
+  * **Transaction History** – full list of user transactions
+  * **Browser** – built-in wallet browser containing submenus: Explorer, Validator, Whitepaper, Stake
+  * **Settings** – account, security, network options
+
+* **Browser Submenus:**
+
+  1. **Explorer** – Etherscan-like functionality (blocks, addresses, transactions)
+  2. **Validator** – list of validators (empty if none)
+  3. **Stake** – staking interface, rewards, delegation
+  4. **Whitepaper** – embedded Zerith Chain whitepaper
+
+---
+
+### 2. Wallet Tab
+
+* **Assets overview:** token balance and fiat equivalent
+* **Portfolio summary:** total ZTH and fiat value
+* **QR code section:**
+
+  * Display your **real ZTH address** QR code
+  * Scan **other ZTH addresses** to pre-fill Send form
+* **Send / Receive buttons**
+* No staking functionality here
+
+---
+
+### 3. Transaction History Tab
+
+* Columns: Date/Time, Type (Send/Receive), Amount, Status
+* Filters: Token, Status, Date Range
+* Pagination & sorting
+* SHA256 **Zerith-native tx hashes**
+* Clickable hashes open Explorer view
+
+---
+
+### 4. Browser Tab (Built-in Wallet Browser)
+
+* Functions as **wallet-integrated web browser** to interact with dApps, contracts, staking interfaces, and blockchain data
+
+**Submenus:**
+
+1. **Explorer:**
+
+   * Search blocks, addresses, transactions
+   * Address view: balance, total received/sent, transaction count
+   * Transaction table: SHA256 tx hash, age, from, to, value, fee, status
+   * Block view: height, timestamp, validator, transactions
+   * Transaction view: hash, block, from/to, amount, fee, timestamp
+
+2. **Validator:**
+
+   * Table: validator name, stake, status, uptime
+   * Empty state: “No validators yet”
+
+3. **Stake:**
+
+   * Stake your ZTH tokens
+   * View current stake, rewards, and delegation options
+   * Interface for delegation and unstaking
+
+4. **Whitepaper:**
+
+   * Full Zerith Chain whitepaper embedded
+   * Table of contents for navigation
+
+---
+
+### 5. QR Code Integration
+
+* Display **real ZTH address** QR code in Wallet tab
+* Scan QR codes from others’ ZTH addresses to pre-fill **Send form**
+* Validate scanned addresses (`zth` + 50 alphanumeric characters)
+
+---
+
+### 6. Color Palette & Visuals
+
+* Background: **white (#FFFFFF)**
+* Accent: **light blue (#5AC8FA)** for buttons, active menus, highlights
+* Card backgrounds: very light blue (#F0FAFF)
+* Rounded cards with subtle shadows
+* Hover effects for buttons and tables
+
+---
+
+### 7. Typography & Iconography
+
+* Font: Inter or Poppins
+* OKX-style line icons for menus and submenus
+* Active submenu highlighted with accent blue
+* Consistent typography for headings, subheadings, body text
+
+---
+
+### 8. Interactive Elements
+
+* Real-time wallet balance updates
+* Smooth tab/submenu transitions
+* Transaction toast notifications
+* Clickable tx hashes link to Explorer
+* Pagination for Explorer and Transaction tables
+* QR code scanning auto-fills Send form
+
+---
+
+### 9. Mobile & Responsive Design
+
+* **Mobile:** bottom navigation: Wallet, Transaction History, Browser, Settings
+* **Desktop:** sidebar with icons + labels
+* Responsive cards and tables for smaller screens
+* Built-in Browser adapts to screen size, showing tabs for Explorer, Validator, Stake, Whitepaper
+
+---
+
+### 10. Deliverables
+
+1. **Redesigned wallet prototype** (Figma / Adobe XD) with white/light blue theme
+2. **Wallet tab** with assets, portfolio, and real ZTH QR code
+3. **Transaction History tab** with SHA256 tx hashes
+4. **Built-in Browser tab** containing Explorer, Validator, Stake, Whitepaper submenus
+5. Updated **OKX-style menu icons and layout**
+6. Fully responsive design for mobile and desktop
+7. Recommendations for **animations, QR code scanning, and interactive UX**
+
+Focus: **professional OKX-style wallet with built-in browser, staking inside Browser submenu, SHA256 Zerith-native tx hashes, light blue/white aesthetics, complete transaction and validator visibility, and real QR code functionality**.
