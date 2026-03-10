@@ -127,6 +127,62 @@ export async function registerRoutes(
     "avalanche": "https://api.avax.network/ext/bc/C/rpc",
   };
 
+  function abiDecodeString(hex: string): string {
+    try {
+      const data = hex.startsWith("0x") ? hex.slice(2) : hex;
+      if (data.length < 128) return "";
+      const firstWord = parseInt(data.slice(0, 64), 16);
+      let offset = firstWord === 32 ? 64 : 0;
+      const length = parseInt(data.slice(offset, offset + 64), 16);
+      if (isNaN(length) || length <= 0 || length > 512) return "";
+      const strHex = data.slice(offset + 64, offset + 64 + length * 2);
+      let result = "";
+      for (let i = 0; i < strHex.length; i += 2) {
+        const code = parseInt(strHex.slice(i, i + 2), 16);
+        if (code > 0) result += String.fromCharCode(code);
+      }
+      return result.trim();
+    } catch { return ""; }
+  }
+
+  function abiDecodeUint(hex: string): number {
+    try {
+      const data = hex.startsWith("0x") ? hex.slice(2) : hex;
+      return parseInt(data.slice(-64), 16);
+    } catch { return 18; }
+  }
+
+  async function rpcEthCall(rpc: string, contract: string, selector: string): Promise<string> {
+    const r = await fetch(rpc, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", method: "eth_call", id: 1, params: [{ to: contract, data: selector }, "latest"] }),
+    });
+    const d = await r.json() as Record<string, unknown>;
+    return String(d.result ?? "0x");
+  }
+
+  async function lookupErc20ViaRpc(rpc: string, contract: string): Promise<{ name: string; symbol: string; decimals: number } | null> {
+    try {
+      const [nameHex, symbolHex, decimalsHex] = await Promise.all([
+        rpcEthCall(rpc, contract, "0x06fdde03"),
+        rpcEthCall(rpc, contract, "0x95d89b41"),
+        rpcEthCall(rpc, contract, "0x313ce567"),
+      ]);
+      const name = abiDecodeString(nameHex);
+      const symbol = abiDecodeString(symbolHex);
+      const decimals = abiDecodeUint(decimalsHex);
+      if (!name && !symbol) return null;
+      return { name: name || symbol || "Unknown Token", symbol: (symbol || name || "???").toUpperCase(), decimals: isNaN(decimals) ? 18 : decimals };
+    } catch { return null; }
+  }
+
+  const NETWORK_LABELS: Record<string, string> = {
+    "ethereum": "Ethereum", "binance-smart-chain": "BNB Chain",
+    "polygon-pos": "Polygon", "arbitrum-one": "Arbitrum",
+    "optimistic-ethereum": "Optimism", "base": "Base", "avalanche": "Avalanche",
+  };
+
   app.get("/api/token/lookup", async (req, res) => {
     const { network, contract } = req.query as Record<string, string>;
     if (!network || !contract) return res.status(400).json({ error: "Missing network or contract" });
@@ -136,7 +192,7 @@ export async function registerRoutes(
         const r = await fetch(`https://tokens.jup.ag/token/${contract}`, {
           headers: { "Accept": "application/json" },
         });
-        if (!r.ok) return res.status(404).json({ error: "Token not found on Solana" });
+        if (!r.ok) return res.status(404).json({ error: "Token not found on Solana. Verify the mint address is correct." });
         const d = await r.json() as Record<string, unknown>;
         return res.json({
           name: d.name,
@@ -150,29 +206,45 @@ export async function registerRoutes(
         });
       }
 
+      const rpc = EVM_RPCS[network];
       const cgUrl = `https://api.coingecko.com/api/v3/coins/${network}/contract/${encodeURIComponent(contract)}`;
-      const r = await fetch(cgUrl, { headers: { "Accept": "application/json" } });
-      if (!r.ok) return res.status(404).json({ error: `Token not found on ${network} (CoinGecko)` });
-      const d = await r.json() as Record<string, unknown>;
-      const platforms = d.detail_platforms as Record<string, Record<string, unknown>> | undefined;
-      const decimals = (platforms?.[network]?.decimal_place as number) ?? 18;
-      const img = d.image as Record<string, string> | undefined;
-      const mkt = d.market_data as Record<string, Record<string, number>> | undefined;
-      const networkLabels: Record<string, string> = {
-        "ethereum": "Ethereum", "binance-smart-chain": "BNB Chain",
-        "polygon-pos": "Polygon", "arbitrum-one": "Arbitrum",
-        "optimistic-ethereum": "Optimism", "base": "Base", "avalanche": "Avalanche",
-      };
-      return res.json({
-        name: d.name,
-        symbol: String(d.symbol ?? "").toUpperCase(),
-        decimals,
-        logoUrl: img?.large ?? img?.small ?? img?.thumb ?? null,
-        price: mkt?.current_price?.usd ?? null,
-        contractAddress: contract,
-        network,
-        networkLabel: networkLabels[network] ?? network,
-      });
+      const cgResp = await fetch(cgUrl, { headers: { "Accept": "application/json" } });
+
+      if (cgResp.ok) {
+        const d = await cgResp.json() as Record<string, unknown>;
+        const platforms = d.detail_platforms as Record<string, Record<string, unknown>> | undefined;
+        const decimals = (platforms?.[network]?.decimal_place as number) ?? 18;
+        const img = d.image as Record<string, string> | undefined;
+        const mkt = d.market_data as Record<string, Record<string, number>> | undefined;
+        return res.json({
+          name: d.name,
+          symbol: String(d.symbol ?? "").toUpperCase(),
+          decimals,
+          logoUrl: img?.large ?? img?.small ?? img?.thumb ?? null,
+          price: mkt?.current_price?.usd ?? null,
+          contractAddress: contract,
+          network,
+          networkLabel: NETWORK_LABELS[network] ?? network,
+        });
+      }
+
+      if (rpc) {
+        const erc20 = await lookupErc20ViaRpc(rpc, contract);
+        if (erc20) {
+          return res.json({
+            name: erc20.name,
+            symbol: erc20.symbol,
+            decimals: erc20.decimals,
+            logoUrl: null,
+            price: null,
+            contractAddress: contract,
+            network,
+            networkLabel: NETWORK_LABELS[network] ?? network,
+          });
+        }
+      }
+
+      return res.status(404).json({ error: `Token not found on ${NETWORK_LABELS[network] ?? network}. Check the contract address.` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return res.status(500).json({ error: `Lookup failed: ${msg}` });

@@ -12,6 +12,7 @@ import WalletReceive from "@/pages/wallet-receive";
 import Transactions from "@/pages/transactions";
 import BrowserPage from "@/pages/browser-page";
 import SettingsPage from "@/pages/settings";
+import TxDetail from "@/pages/tx-detail";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/whitepaper" component={BrowserPage} />
       <Route path="/wallet/send" component={WalletSend} />
       <Route path="/wallet/receive" component={WalletReceive} />
+      <Route path="/explorer/tx/:hash" component={TxDetail} />
       <Route path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>

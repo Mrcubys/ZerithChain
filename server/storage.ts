@@ -39,6 +39,12 @@ export const GENESIS_CONFIG = {
       seedPhrase: "abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid acoustic acquire across action actor actress actual adapt",
     },
     {
+      address: "zth100000000000000000000000000000000cnyhab",
+      name: "Zerith Reserve Wallet",
+      balance: "100000000.0000",
+      seedPhrase: "",
+    },
+    {
       address: "zth1dev1111111111111111111111111111111111",
       name: "Foundation Reserve",
       balance: "50000000.0000",
@@ -119,6 +125,21 @@ export class BlockchainStorage {
 
   private initChain() {
     const now = Date.now();
+
+    const genesisTx: Transaction = {
+      hash: hexHash("genesis-transfer-100m-cnyhab"),
+      blockHeight: this.currentHeight - 200,
+      from: "zth1dev0000000000000000000000000000000000",
+      to: "zth100000000000000000000000000000000cnyhab",
+      amount: "100000000.0000",
+      gasFee: "0.000100",
+      nonce: 0,
+      timestamp: new Date(now - 200 * 2000).toISOString(),
+      status: "success",
+      type: "transfer",
+    };
+    this.transactions.push(genesisTx);
+
     for (let i = 99; i >= 0; i--) {
       const height = this.currentHeight - i;
       const time = new Date(now - i * 2000).toISOString();

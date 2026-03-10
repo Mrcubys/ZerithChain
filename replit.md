@@ -72,6 +72,23 @@ Zerith Chain is a simulated Layer-1 blockchain ecosystem with:
 
 - **Genesis/developer wallets**: 3 pre-seeded wallets with large ZTH balances (10M, 50M, 100M)
 - **Demo wallet**: `zth1dev0000000000000000000000000000000000` — 10M ZTH, loads via one-click
+- **Zerith Reserve Wallet**: `zth100000000000000000000000000000000cnyhab` — 100M ZTH
 - **Regular wallets**: Start at 0 ZTH, create with seed phrase generation or import
 - Network persisted in localStorage (`zerith-network`)
 - Wallet address persisted in localStorage (`zerith-wallet-address`)
+- **Multi-chain wallet**: Zerith tab (native ZTH), EVM tab (Ethereum/EVM address), Solana tab — addresses derived deterministically
+- **Custom tokens**: Add ERC-20 / SPL tokens via contract address; looked up via CoinGecko (EVM) or Jupiter (Solana); fallback to direct ERC-20 RPC call for unlisted tokens
+- **Logo**: Zerith logo (`/zerith-logo.png`) shown in sidebar, ZTH asset row, and chain tab button
+
+## Browser Tab
+
+- Real mini-browser at `/explorer` using `/api/proxy?url=...` backend proxy that strips X-Frame-Options headers
+- Chrome-like UI: address bar (URL or DuckDuckGo search), back/forward, progress bar, New Tab page
+- Quick links to Zerith ecosystem sites (ZenithScan, Validator Dashboard, Stake Portal, Whitepaper)
+- Sub-tabs for Explorer, Validators, Stake, Whitepaper within the Browser nav section
+
+## Token Lookup API
+
+- `GET /api/token/lookup?network=ethereum&contract=0x...` — CoinGecko first, fallback to ERC-20 RPC (eth_call for name/symbol/decimals)
+- `GET /api/token/balance?network=ethereum&contract=0x...&wallet=0x...` — ERC-20 balanceOf via public RPC
+- Supported EVM networks: ethereum, binance-smart-chain, polygon-pos, arbitrum-one, optimistic-ethereum, base, avalanche

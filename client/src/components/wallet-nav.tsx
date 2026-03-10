@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Wallet, History, Globe, Settings, ChevronLeft, RotateCw, X, Lock, Copy, Check } from "lucide-react";
+const zerithLogoPath = "/zerith-logo.png";
 
 const navItems = [
   { label: "Wallet", icon: Wallet, href: "/", match: ["/", "/wallet/send", "/wallet/receive"] },
@@ -58,8 +59,8 @@ export function WalletSidebar() {
     <aside className="hidden md:flex flex-col w-56 border-r border-border bg-background flex-shrink-0 min-h-screen">
       <div className="px-5 py-5 border-b border-border">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-            <span className="text-primary-foreground font-bold text-xs">ZC</span>
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-border/40">
+            <img src={zerithLogoPath} alt="Zerith" className="w-full h-full object-cover" />
           </div>
           <div>
             <div className="font-semibold text-sm text-foreground">Zerith Wallet</div>

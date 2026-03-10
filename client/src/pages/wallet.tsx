@@ -17,11 +17,14 @@ import {
   type CustomToken, SUPPORTED_NETWORKS,
 } from "@/lib/chain-utils";
 import { AddTokenModal } from "@/components/add-token-modal";
+import { SiEthereum, SiSolana } from "react-icons/si";
 import {
   Wallet, Copy, Eye, EyeOff, Send, ArrowDownLeft, Plus,
   Download, Gem, ChevronDown, Check, ExternalLink, ArrowRight,
   TrendingUp, RefreshCw, Trash2,
 } from "lucide-react";
+
+const zerithLogoPath = "/zerith-logo.png";
 
 const STORAGE_ADDRESS_KEY = "zerith-wallet-address";
 const STORAGE_NETWORK_KEY = "zerith-network";
@@ -347,16 +350,30 @@ export default function WalletPage() {
         <Card className="rounded-2xl shadow-sm border-card-border">
           <CardContent className="p-0">
             <div className="flex border-b border-border/60">
-              {(["zerith", "evm", "solana"] as ChainTab[]).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setChainTab(tab)}
-                  className={`flex-1 py-2.5 text-xs font-medium transition-colors border-b-2 ${chainTab === tab ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                  data-testid={`tab-chain-${tab}`}
-                >
-                  {tab === "zerith" ? "Zerith" : tab === "evm" ? "EVM" : "Solana"}
-                </button>
-              ))}
+              <button
+                onClick={() => setChainTab("zerith")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2 ${chainTab === "zerith" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                data-testid="tab-chain-zerith"
+              >
+                <img src={zerithLogoPath} alt="ZTH" className="w-3.5 h-3.5 rounded-sm object-cover" />
+                Zerith
+              </button>
+              <button
+                onClick={() => setChainTab("evm")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2 ${chainTab === "evm" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                data-testid="tab-chain-evm"
+              >
+                <SiEthereum className="w-3.5 h-3.5 text-[#627EEA]" />
+                EVM
+              </button>
+              <button
+                onClick={() => setChainTab("solana")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2 ${chainTab === "solana" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                data-testid="tab-chain-solana"
+              >
+                <SiSolana className="w-3.5 h-3.5 text-[#9945FF]" />
+                Solana
+              </button>
             </div>
             <div className="p-4">
               {chainTab === "zerith" && (
@@ -420,8 +437,8 @@ export default function WalletPage() {
             </div>
 
             <div className="flex items-center gap-3 py-2.5 border-b border-border/40 last:border-0">
-              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-primary">ZTH</span>
+              <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-border/40">
+                <img src={zerithLogoPath} alt="ZTH" className="w-full h-full object-cover" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">Zerith</p>
