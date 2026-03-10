@@ -117,6 +117,115 @@ export async function registerRoutes(
     res.json(blockchainStorage.getGenesisConfig());
   });
 
+  const EVM_RPCS: Record<string, string> = {
+    "ethereum": "https://eth.llamarpc.com",
+    "binance-smart-chain": "https://bsc-dataseed.binance.org/",
+    "polygon-pos": "https://polygon-rpc.com",
+    "arbitrum-one": "https://arb1.arbitrum.io/rpc",
+    "optimistic-ethereum": "https://mainnet.optimism.io",
+    "base": "https://mainnet.base.org",
+    "avalanche": "https://api.avax.network/ext/bc/C/rpc",
+  };
+
+  app.get("/api/token/lookup", async (req, res) => {
+    const { network, contract } = req.query as Record<string, string>;
+    if (!network || !contract) return res.status(400).json({ error: "Missing network or contract" });
+
+    try {
+      if (network === "solana") {
+        const r = await fetch(`https://tokens.jup.ag/token/${contract}`, {
+          headers: { "Accept": "application/json" },
+        });
+        if (!r.ok) return res.status(404).json({ error: "Token not found on Solana" });
+        const d = await r.json() as Record<string, unknown>;
+        return res.json({
+          name: d.name,
+          symbol: String(d.symbol ?? "").toUpperCase(),
+          decimals: d.decimals ?? 9,
+          logoUrl: d.logoURI ?? null,
+          price: null,
+          contractAddress: contract,
+          network: "solana",
+          networkLabel: "Solana",
+        });
+      }
+
+      const cgUrl = `https://api.coingecko.com/api/v3/coins/${network}/contract/${encodeURIComponent(contract)}`;
+      const r = await fetch(cgUrl, { headers: { "Accept": "application/json" } });
+      if (!r.ok) return res.status(404).json({ error: `Token not found on ${network} (CoinGecko)` });
+      const d = await r.json() as Record<string, unknown>;
+      const platforms = d.detail_platforms as Record<string, Record<string, unknown>> | undefined;
+      const decimals = (platforms?.[network]?.decimal_place as number) ?? 18;
+      const img = d.image as Record<string, string> | undefined;
+      const mkt = d.market_data as Record<string, Record<string, number>> | undefined;
+      const networkLabels: Record<string, string> = {
+        "ethereum": "Ethereum", "binance-smart-chain": "BNB Chain",
+        "polygon-pos": "Polygon", "arbitrum-one": "Arbitrum",
+        "optimistic-ethereum": "Optimism", "base": "Base", "avalanche": "Avalanche",
+      };
+      return res.json({
+        name: d.name,
+        symbol: String(d.symbol ?? "").toUpperCase(),
+        decimals,
+        logoUrl: img?.large ?? img?.small ?? img?.thumb ?? null,
+        price: mkt?.current_price?.usd ?? null,
+        contractAddress: contract,
+        network,
+        networkLabel: networkLabels[network] ?? network,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ error: `Lookup failed: ${msg}` });
+    }
+  });
+
+  app.get("/api/token/balance", async (req, res) => {
+    const { network, contract, wallet } = req.query as Record<string, string>;
+    if (!network || !contract || !wallet) return res.status(400).json({ error: "Missing params" });
+
+    try {
+      if (network === "solana") {
+        const body = {
+          jsonrpc: "2.0", id: 1,
+          method: "getTokenAccountsByOwner",
+          params: [wallet, { mint: contract }, { encoding: "jsonParsed" }],
+        };
+        const r = await fetch("https://api.mainnet-beta.solana.com", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await r.json() as Record<string, unknown>;
+        const result = data.result as Record<string, unknown> | undefined;
+        const value = result?.value as Array<Record<string, unknown>> | undefined;
+        const amount = (value?.[0]?.account as Record<string, unknown>)?.data as Record<string, unknown>;
+        const parsed = amount?.parsed as Record<string, Record<string, unknown>> | undefined;
+        const balance = String(parsed?.info?.tokenAmount?.uiAmount ?? "0");
+        return res.json({ balance });
+      }
+
+      const rpc = EVM_RPCS[network];
+      if (!rpc) return res.status(400).json({ error: "Unsupported network" });
+
+      const walletHex = wallet.startsWith("0x") ? wallet.slice(2) : wallet;
+      const data = "0x70a08231" + "000000000000000000000000" + walletHex.padStart(40, "0");
+      const body = { jsonrpc: "2.0", method: "eth_call", id: 1, params: [{ to: contract, data }, "latest"] };
+
+      const r = await fetch(rpc, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const resp = await r.json() as Record<string, unknown>;
+      const hex = String(resp.result ?? "0x0");
+      const raw = BigInt(hex === "0x" ? "0" : hex);
+      return res.json({ balance: raw.toString(), balanceRaw: hex });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ error: msg });
+    }
+  });
+
   app.get("/api/proxy", async (req, res) => {
     const targetUrl = req.query.url as string;
     if (!targetUrl) return res.status(400).send("Missing url");

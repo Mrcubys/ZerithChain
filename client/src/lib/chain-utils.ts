@@ -122,3 +122,109 @@ export function generateAddress(seed: string): string {
 export const DEVELOPER_WALLET_ADDRESS = "zth1dev0000000000000000000000000000000000";
 export const DEMO_WALLET_ADDRESS = DEVELOPER_WALLET_ADDRESS;
 export const DEVELOPER_WALLET_NAME = "Genesis Dev Wallet";
+
+export const SUPPORTED_NETWORKS = [
+  { id: "ethereum",            label: "Ethereum",  symbol: "ETH",  color: "#627EEA" },
+  { id: "binance-smart-chain", label: "BNB Chain", symbol: "BNB",  color: "#F3BA2F" },
+  { id: "polygon-pos",         label: "Polygon",   symbol: "POL",  color: "#8247E5" },
+  { id: "arbitrum-one",        label: "Arbitrum",  symbol: "ETH",  color: "#28A0F0" },
+  { id: "optimistic-ethereum", label: "Optimism",  symbol: "ETH",  color: "#FF0420" },
+  { id: "base",                label: "Base",      symbol: "ETH",  color: "#0052FF" },
+  { id: "avalanche",           label: "Avalanche", symbol: "AVAX", color: "#E84142" },
+  { id: "solana",              label: "Solana",    symbol: "SOL",  color: "#9945FF" },
+] as const;
+
+export type SupportedNetworkId = (typeof SUPPORTED_NETWORKS)[number]["id"];
+
+export interface CustomToken {
+  id: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  contractAddress: string;
+  network: string;
+  networkLabel: string;
+  logoUrl: string | null;
+  price: number | null;
+  balance: string;
+  balanceFormatted: string;
+  addedAt: number;
+}
+
+const TOKENS_KEY = "zerith-custom-tokens-v1";
+
+export function loadCustomTokens(walletAddress: string): CustomToken[] {
+  try {
+    const raw = localStorage.getItem(`${TOKENS_KEY}-${walletAddress}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+export function saveCustomTokens(walletAddress: string, tokens: CustomToken[]): void {
+  localStorage.setItem(`${TOKENS_KEY}-${walletAddress}`, JSON.stringify(tokens));
+}
+
+function simpleHash(seed: string, rounds = 8): number[] {
+  let state = new Array(rounds).fill(0).map((_, i) => 0x6a09e667 + i * 0x9b05688c);
+  for (let i = 0; i < seed.length; i++) {
+    const c = seed.charCodeAt(i);
+    for (let j = 0; j < state.length; j++) {
+      state[j] = ((state[j] ^ (state[(j + 1) % rounds] >>> 2)) * 1664525 + c * (j + 1) * 1013904223) | 0;
+    }
+  }
+  for (let round = 0; round < 4; round++) {
+    for (let j = 0; j < state.length; j++) {
+      state[j] = ((state[j] << 13) | (state[j] >>> 19)) ^ state[(j + 3) % rounds];
+    }
+  }
+  return state.map(v => v >>> 0);
+}
+
+export function deriveEvmAddress(zthAddress: string): string {
+  const nums = simpleHash("evm:" + zthAddress, 5);
+  let hex = nums.map(n => n.toString(16).padStart(8, "0")).join("");
+  return "0x" + hex.slice(0, 40);
+}
+
+const B58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+export function base58Encode(bytes: Uint8Array): string {
+  let leading = 0;
+  for (const b of bytes) { if (b !== 0) break; leading++; }
+  const digits: number[] = [0];
+  for (const byte of bytes) {
+    let carry = byte;
+    for (let j = 0; j < digits.length; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = Math.floor(carry / 58);
+    }
+    while (carry > 0) { digits.push(carry % 58); carry = Math.floor(carry / 58); }
+  }
+  return "1".repeat(leading) + digits.reverse().map(d => B58_ALPHABET[d]).join("");
+}
+
+export function deriveSolanaAddress(zthAddress: string): string {
+  const nums = simpleHash("sol:" + zthAddress, 8);
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < 8; i++) {
+    const v = nums[i];
+    bytes[i * 4]     = (v >>> 24) & 0xff;
+    bytes[i * 4 + 1] = (v >>> 16) & 0xff;
+    bytes[i * 4 + 2] = (v >>> 8)  & 0xff;
+    bytes[i * 4 + 3] = v & 0xff;
+  }
+  return base58Encode(bytes);
+}
+
+export function formatTokenBalance(rawBalance: string, decimals: number): string {
+  try {
+    const n = BigInt(rawBalance);
+    const d = BigInt(10) ** BigInt(decimals);
+    const whole = n / d;
+    const frac = n % d;
+    if (frac === 0n) return whole.toString();
+    const fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "").slice(0, 6);
+    return `${whole}.${fracStr}`;
+  } catch { return rawBalance; }
+}
