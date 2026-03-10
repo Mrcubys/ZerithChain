@@ -1,109 +1,149 @@
 import { Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Copy, Check, ArrowDownLeft } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import QRCode from "react-qr-code";
+import { getSeedPhrase } from "@/lib/pin-security";
+import { deriveEvmFromSeed, deriveSolanaFromSeed } from "@/lib/bip44";
+import { deriveEvmAddress, deriveSolanaAddress } from "@/lib/chain-utils";
+import { SiEthereum, SiSolana } from "react-icons/si";
+
+const zerithLogoPath = "/zerith-logo.png";
+
+type Chain = "zerith" | "evm" | "solana";
 
 export default function WalletReceive() {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
-  const address = localStorage.getItem("zerith-wallet-address") ?? "";
+  const [chain, setChain] = useState<Chain>("zerith");
+  const zthAddress = localStorage.getItem("zerith-wallet-address") ?? "";
+
+  const [evmAddress, setEvmAddress] = useState("");
+  const [solanaAddress, setSolanaAddress] = useState("");
+
+  useEffect(() => {
+    if (!zthAddress) return;
+    const sp = getSeedPhrase(zthAddress);
+    if (sp) {
+      setEvmAddress(deriveEvmFromSeed(sp));
+      setSolanaAddress(deriveSolanaFromSeed(sp));
+    } else {
+      setEvmAddress(deriveEvmAddress(zthAddress));
+      setSolanaAddress(deriveSolanaAddress(zthAddress));
+    }
+  }, [zthAddress]);
+
+  const activeAddress =
+    chain === "evm" ? evmAddress :
+    chain === "solana" ? solanaAddress :
+    zthAddress;
+
+  const chainLabel =
+    chain === "evm" ? "EVM (Ethereum)" :
+    chain === "solana" ? "Solana" :
+    "Zerith Chain";
+
+  const qrValue = activeAddress || " ";
 
   const copy = () => {
-    navigator.clipboard.writeText(address);
+    if (!activeAddress) return;
+    navigator.clipboard.writeText(activeAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
-    toast({ title: "Address copied", description: "Your ZTH address has been copied." });
+    toast({ title: "Address copied", description: `${chainLabel} address copied.` });
   };
 
-  if (!address) {
+  if (!zthAddress) {
     return (
       <div className="p-6 text-center py-16">
         <ArrowDownLeft className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
         <h2 className="text-lg font-semibold">No Wallet Connected</h2>
         <Button variant="outline" size="sm" asChild className="mt-4">
-          <Link href="/wallet">Open Wallet</Link>
+          <Link href="/">Open Wallet</Link>
         </Button>
       </div>
     );
   }
 
-  const qrContent = `zerith:${address}`;
-  const qrSize = 200;
-  const modules = 21;
-  const moduleSize = qrSize / modules;
-
-  const qrPattern = Array.from({ length: modules }, (_, r) =>
-    Array.from({ length: modules }, (_, c) => {
-      const edge = r < 7 || r >= modules - 7 || c < 7 || c >= modules - 7;
-      const inner = (r >= 2 && r <= 4 && c >= 2 && c <= 4) ||
-        (r >= 2 && r <= 4 && c >= modules - 5 && c <= modules - 3) ||
-        (r >= modules - 5 && r <= modules - 3 && c >= 2 && c <= 4);
-      const data = (address.charCodeAt((r * modules + c) % address.length) & (1 << (c % 8))) !== 0;
-      return edge || inner || data;
-    })
-  );
-
   return (
-    <div className="flex flex-col min-h-full">
-      <div className="border-b border-border px-6 py-4">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/"><ArrowLeft className="w-4 h-4 mr-1" />Wallet</Link>
-          </Button>
-          <Separator orientation="vertical" className="h-4" />
-          <ArrowDownLeft className="w-4 h-4 text-muted-foreground" />
-          <h1 className="font-semibold">Receive ZTH</h1>
-        </div>
+    <div className="flex flex-col min-h-full bg-background">
+      <div className="border-b border-border px-4 py-3 flex items-center gap-3">
+        <Button variant="ghost" size="sm" asChild className="p-1">
+          <Link href="/"><ArrowLeft className="w-4 h-4" /></Link>
+        </Button>
+        <ArrowDownLeft className="w-4 h-4 text-muted-foreground" />
+        <h1 className="font-semibold">Receive</h1>
       </div>
 
-      <div className="p-6 max-w-sm mx-auto w-full space-y-5">
-        <Card>
-          <CardContent className="p-6 flex flex-col items-center gap-4">
-            <div className="p-3 bg-white rounded-sm" data-testid="qr-code-display">
-              <svg width={qrSize} height={qrSize} viewBox={`0 0 ${qrSize} ${qrSize}`}>
-                {qrPattern.map((row, r) =>
-                  row.map((filled, c) =>
-                    filled ? (
-                      <rect
-                        key={`${r}-${c}`}
-                        x={c * moduleSize}
-                        y={r * moduleSize}
-                        width={moduleSize}
-                        height={moduleSize}
-                        fill="#000"
-                      />
-                    ) : null
-                  )
-                )}
-              </svg>
-            </div>
-            <p className="text-sm text-muted-foreground text-center">Scan to receive ZTH on Zerith Chain</p>
-          </CardContent>
-        </Card>
+      <div className="p-4 max-w-sm mx-auto w-full space-y-4">
+        <div className="flex rounded-xl bg-secondary p-1 gap-1">
+          <button
+            onClick={() => setChain("zerith")}
+            data-testid="tab-receive-zerith"
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all ${chain === "zerith" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+          >
+            <img src={zerithLogoPath} alt="ZTH" className="w-3.5 h-3.5 rounded-full" />
+            Zerith
+          </button>
+          <button
+            onClick={() => setChain("evm")}
+            data-testid="tab-receive-evm"
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all ${chain === "evm" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+          >
+            <SiEthereum className="w-3 h-3" style={{ color: "#627EEA" }} />
+            EVM
+          </button>
+          <button
+            onClick={() => setChain("solana")}
+            data-testid="tab-receive-solana"
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all ${chain === "solana" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+          >
+            <SiSolana className="w-3 h-3" style={{ color: "#9945FF" }} />
+            Solana
+          </button>
+        </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Your Address</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 space-y-3">
-            <div className="bg-secondary rounded-sm p-3">
-              <code className="text-xs font-mono break-all text-muted-foreground" data-testid="receive-address">{address}</code>
-            </div>
-            <Button className="w-full" onClick={copy} data-testid="button-copy-receive-address">
-              {copied ? (
-                <><Check className="w-4 h-4 mr-2 text-green-400" />Copied</>
-              ) : (
-                <><Copy className="w-4 h-4 mr-2" />Copy Address</>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center bg-card border border-card-border rounded-2xl p-5 gap-4 shadow-sm">
+          <p className="text-sm font-medium text-foreground">{chainLabel}</p>
+          <div className="p-3 bg-white rounded-xl" data-testid="qr-code-display">
+            <QRCode
+              value={qrValue}
+              size={200}
+              bgColor="#ffffff"
+              fgColor="#000000"
+              level="M"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground text-center">
+            {chain === "zerith" && "Scan to receive ZTH on Zerith Chain"}
+            {chain === "evm" && "Scan to receive tokens on Ethereum / EVM chains"}
+            {chain === "solana" && "Scan to receive tokens on Solana"}
+          </p>
+        </div>
 
-        <div className="p-3 rounded-sm border border-border/50 bg-secondary/30">
-          <p className="text-xs text-muted-foreground">Only send ZTH (ZTH) to this address. Sending other assets will result in permanent loss.</p>
+        <div className="bg-card border border-card-border rounded-2xl p-4 space-y-3 shadow-sm">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Your Address</p>
+          <div className="bg-secondary rounded-xl p-3">
+            <code className="text-xs font-mono break-all text-foreground/80" data-testid="receive-address">
+              {activeAddress || "Deriving address…"}
+            </code>
+          </div>
+          <Button className="w-full rounded-xl" onClick={copy} data-testid="button-copy-receive-address">
+            {copied ? (
+              <><Check className="w-4 h-4 mr-2 text-green-400" />Copied</>
+            ) : (
+              <><Copy className="w-4 h-4 mr-2" />Copy Address</>
+            )}
+          </Button>
+        </div>
+
+        <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            {chain === "zerith" && "Only send ZTH to this address. Sending other assets may result in permanent loss."}
+            {chain === "evm" && "Only send EVM-compatible tokens (ETH, BNB, MATIC, etc.) to this address."}
+            {chain === "solana" && "Only send SOL and SPL tokens to this address."}
+          </p>
         </div>
       </div>
     </div>
