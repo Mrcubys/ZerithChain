@@ -114,7 +114,7 @@ export default function Transactions() {
               {paginated.map((tx, i) => {
                 const isSend = tx.from === address;
                 return (
-                  <Link key={tx.hash} href={`/explorer/tx/${tx.hash}`} className={`flex items-center gap-3 px-4 py-3.5 hover:bg-muted/40 transition-colors ${i < paginated.length - 1 ? "border-b border-border/60" : ""}`} data-testid={`tx-history-${tx.hash.slice(2, 10)}`}>
+                  <Link key={tx.hash} href={`/scan/tx/${tx.hash}`} className={`flex items-center gap-3 px-4 py-3.5 hover:bg-muted/40 transition-colors ${i < paginated.length - 1 ? "border-b border-border/60" : ""}`} data-testid={`tx-history-${tx.hash.slice(2, 10)}`}>
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isSend ? "bg-red-50" : "bg-green-50"}`}>
                       {isSend
                         ? <ArrowRight className="w-4 h-4 text-red-500" />

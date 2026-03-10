@@ -23,7 +23,7 @@ import { SiEthereum, SiSolana } from "react-icons/si";
 import {
   Copy, Eye, EyeOff, Send, ArrowDownLeft, Plus,
   Download, ChevronDown, Check, ExternalLink,
-  TrendingUp, RefreshCw, Trash2, ArrowRight, ScanLine,
+  TrendingUp, RefreshCw, Trash2, ArrowRight, ScanLine, Search,
 } from "lucide-react";
 import { QrScanner } from "@/components/qr-scanner";
 
@@ -334,9 +334,15 @@ export default function WalletPage() {
               )}
             </div>
           </div>
-          <button onClick={() => refetch()} className="bg-white/15 backdrop-blur-sm rounded-full p-1.5 text-white" data-testid="button-refresh">
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <Link href="/scan" className="bg-white/15 backdrop-blur-sm rounded-full px-2.5 py-1 text-white flex items-center gap-1.5 text-xs font-medium" data-testid="link-zenithscan">
+              <Search className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">ZenithScan</span>
+            </Link>
+            <button onClick={() => refetch()} className="bg-white/15 backdrop-blur-sm rounded-full p-1.5 text-white" data-testid="button-refresh">
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <div className="text-center">

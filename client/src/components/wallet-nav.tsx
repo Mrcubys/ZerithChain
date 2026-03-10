@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Wallet, History, Globe, Settings, ChevronLeft, RotateCw, X, Lock, Copy, Check } from "lucide-react";
+import { Wallet, History, Globe, Settings, ChevronLeft, RotateCw, X, Lock, Copy, Check, Search } from "lucide-react";
 const zerithLogoPath = "/zerith-logo.png";
 
 const navItems = [
@@ -82,8 +82,12 @@ export function WalletSidebar() {
         })}
       </div>
 
-      <div className="px-4 py-4 border-t border-border">
-        <div className="flex items-center gap-1.5">
+      <div className="px-4 py-4 border-t border-border space-y-3">
+        <Link href="/scan" className="flex items-center gap-2 px-3 py-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all" data-testid="nav-sidebar-zenithscan">
+          <Search className="w-4 h-4 flex-shrink-0" />
+          <span className="text-sm">ZenithScan</span>
+        </Link>
+        <div className="flex items-center gap-1.5 px-3">
           <div className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
           <span className="text-xs text-muted-foreground">Mainnet</span>
         </div>

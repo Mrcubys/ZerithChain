@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { WalletBottomNav, WalletSidebar } from "@/components/wallet-nav";
 import { PinLock } from "@/components/pin-lock";
 import { isPinSet, isSessionExpired, updateActivity, LOCK_TIMEOUT_MS } from "@/lib/pin-security";
+import { ZenithScanLayout } from "@/pages/zenithscan/layout";
 import NotFound from "@/pages/not-found";
 import WalletPage from "@/pages/wallet";
 import WalletSend from "@/pages/wallet-send";
@@ -15,9 +16,32 @@ import Transactions from "@/pages/transactions";
 import BrowserPage from "@/pages/browser-page";
 import SettingsPage from "@/pages/settings";
 import TxDetail from "@/pages/tx-detail";
+import ScanHome from "@/pages/zenithscan/scan-home";
+import ScanBlocks from "@/pages/zenithscan/scan-blocks";
+import ScanTxs from "@/pages/zenithscan/scan-txs";
+import ScanTx from "@/pages/zenithscan/scan-tx";
+import ScanBlock from "@/pages/zenithscan/scan-block";
+import ScanAddress from "@/pages/zenithscan/scan-address";
+import ScanValidators from "@/pages/zenithscan/scan-validators";
 import { useState, useEffect, useCallback } from "react";
 
-function Router() {
+function ScanRouter() {
+  return (
+    <ZenithScanLayout>
+      <Switch>
+        <Route path="/scan" component={ScanHome} />
+        <Route path="/scan/blocks" component={ScanBlocks} />
+        <Route path="/scan/txs" component={ScanTxs} />
+        <Route path="/scan/tx/:hash" component={ScanTx} />
+        <Route path="/scan/block/:identifier" component={ScanBlock} />
+        <Route path="/scan/address/:address" component={ScanAddress} />
+        <Route path="/scan/validators" component={ScanValidators} />
+      </Switch>
+    </ZenithScanLayout>
+  );
+}
+
+function WalletRouter() {
   return (
     <Switch>
       <Route path="/" component={WalletPage} />
@@ -36,6 +60,9 @@ function Router() {
 }
 
 function AppLayout() {
+  const [location] = useLocation();
+  const isScan = location.startsWith("/scan");
+
   const [locked, setLocked] = useState(() => isPinSet() && isSessionExpired());
 
   const activity = useCallback(() => {
@@ -69,12 +96,16 @@ function AppLayout() {
     );
   }
 
+  if (isScan) {
+    return <ScanRouter />;
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <WalletSidebar />
       <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
         <main className="flex-1 overflow-auto">
-          <Router />
+          <WalletRouter />
         </main>
       </div>
       <WalletBottomNav />
