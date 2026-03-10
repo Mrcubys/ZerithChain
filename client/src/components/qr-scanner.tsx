@@ -15,12 +15,21 @@ function parseQrAddress(raw: string): string {
   return raw.split("?")[0];
 }
 
+function safeStop(scanner: any) {
+  try {
+    const p = scanner.stop();
+    if (p && typeof p.catch === "function") p.catch(() => {});
+  } catch {
+    // ignore — scanner may already be stopped or not started
+  }
+}
+
 export function QrScanner({ onScan, onClose }: QrScannerProps) {
   const readerRef = useRef<HTMLDivElement>(null);
   const scannerRef = useRef<any>(null);
+  const scannedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(true);
-  const [scanned, setScanned] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,20 +46,27 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 220, height: 220 } },
           (decodedText: string) => {
-            if (scanned) return;
-            setScanned(true);
+            if (scannedRef.current) return;
+            scannedRef.current = true;
             const addr = parseQrAddress(decodedText);
-            scanner.stop().catch(() => {});
+            safeStop(scanner);
             onScan(addr);
           },
           () => {}
         );
+
+        if (cancelled) {
+          safeStop(scanner);
+          return;
+        }
+
         setStarting(false);
       } catch (e: any) {
         if (!cancelled) {
-          if (e?.message?.includes("Permission")) {
+          const msg: string = e?.message ?? "";
+          if (msg.toLowerCase().includes("permission")) {
             setError("Camera permission denied. Please allow camera access and try again.");
-          } else if (e?.message?.includes("No camera")) {
+          } else if (msg.toLowerCase().includes("no camera") || msg.toLowerCase().includes("not found")) {
             setError("No camera found on this device.");
           } else {
             setError("Could not start camera. Make sure no other app is using it.");
@@ -65,23 +81,25 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
     return () => {
       cancelled = true;
       if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
+        safeStop(scannerRef.current);
       }
     };
   }, []);
+
+  const handleClose = () => {
+    if (scannerRef.current) safeStop(scannerRef.current);
+    onClose();
+  };
 
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col bg-black/90"
       data-testid="qr-scanner-overlay"
     >
-      <div className="flex items-center justify-between px-4 pt-safe pt-4 pb-3">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <p className="text-white font-semibold text-base">Scan QR Code</p>
         <button
-          onClick={() => {
-            if (scannerRef.current) scannerRef.current.stop().catch(() => {});
-            onClose();
-          }}
+          onClick={handleClose}
           className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
           data-testid="button-close-qr-scanner"
         >
