@@ -23,7 +23,7 @@ import { SiEthereum, SiSolana } from "react-icons/si";
 import {
   Copy, Eye, EyeOff, Send, ArrowDownLeft, Plus,
   Download, ChevronDown, Check, ExternalLink,
-  TrendingUp, RefreshCw, Trash2,
+  TrendingUp, RefreshCw, Trash2, ArrowRight,
 } from "lucide-react";
 
 const zerithLogoPath = "/zerith-logo.png";
