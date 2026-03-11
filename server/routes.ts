@@ -358,7 +358,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const value = result?.value as Array<Record<string, unknown>> | undefined;
         const amount = (value?.[0]?.account as Record<string, unknown>)?.data as Record<string, unknown>;
         const parsed = amount?.parsed as Record<string, Record<string, unknown>> | undefined;
-        const balance = String(parsed?.info?.tokenAmount?.uiAmount ?? "0");
+        const tokenAmount = (parsed?.info as Record<string, unknown> | undefined)?.tokenAmount as Record<string, unknown> | undefined;
+        const balance = String(tokenAmount?.uiAmount ?? "0");
         return res.json({ balance });
       }
       const rpc = EVM_RPCS[network];
