@@ -1,21 +1,14 @@
 {
   "buildCommand": "tsx script/build.ts",
   "outputDirectory": "dist/public",
-  "framework": null,
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "/api/:path*"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "destination": "https://zerithwallet.replit.app/api/:path*"
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/:path*",
+      "destination": "/index.html"
     }
   ]
 }
