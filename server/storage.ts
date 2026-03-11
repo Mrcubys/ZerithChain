@@ -416,7 +416,7 @@ export class BlockchainStorage {
 
     const blockHeight = latestBlocks[0]?.height ?? 1;
     const activeValidators = validators.filter(v => v.status === "active").length;
-    const totalStaked = validators.reduce((s, v) => s + parseFloat(v.stake) + parseFloat(v.delegated_stake ?? "0"), 0);
+    const totalStaked = validators.reduce((s, v) => s + parseFloat(v.stake) + parseFloat(v.delegatedStake ?? "0"), 0);
     const totalTx = Number(txCountRow[0]?.count ?? 0);
 
     return {
