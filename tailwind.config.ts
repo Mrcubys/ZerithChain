@@ -6,11 +6,12 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: ".5625rem",
-        md: ".375rem",
-        sm: ".1875rem",
+        lg: ".5625rem", /* 9px */
+        md: ".375rem", /* 6px */
+        sm: ".1875rem", /* 3px */
       },
       colors: {
+        // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",
         border: "hsl(var(--border) / <alpha-value>)",
@@ -72,7 +73,7 @@ export default {
         "sidebar-accent": {
           DEFAULT: "hsl(var(--sidebar-accent) / <alpha-value>)",
           foreground: "hsl(var(--sidebar-accent-foreground) / <alpha-value>)",
-          border: "var(--sidebar-accent-border)",
+          border: "var(--sidebar-accent-border)"
         },
         status: {
           online: "rgb(34 197 94)",
@@ -80,18 +81,11 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
-        neon: {
-          blue: "hsl(var(--neon-blue) / <alpha-value>)",
-          cyan: "hsl(var(--neon-cyan) / <alpha-value>)",
-          purple: "hsl(var(--neon-purple) / <alpha-value>)",
-          green: "hsl(var(--neon-green) / <alpha-value>)",
-        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
-        display: ["Oxanium", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {
@@ -102,42 +96,10 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "pulse-neon": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.5" },
-        },
-        "slide-in-right": {
-          from: { transform: "translateX(100%)", opacity: "0" },
-          to: { transform: "translateX(0)", opacity: "1" },
-        },
-        "fade-in": {
-          from: { opacity: "0", transform: "translateY(4px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
-        },
-        "spin-slow": {
-          from: { transform: "rotate(0deg)" },
-          to: { transform: "rotate(360deg)" },
-        },
-        "glow": {
-          "0%, 100%": { boxShadow: "0 0 5px hsl(var(--neon-blue) / 0.5), 0 0 10px hsl(var(--neon-blue) / 0.3)" },
-          "50%": { boxShadow: "0 0 15px hsl(var(--neon-blue) / 0.8), 0 0 30px hsl(var(--neon-blue) / 0.5)" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-neon": "pulse-neon 2s ease-in-out infinite",
-        "slide-in-right": "slide-in-right 0.3s ease-out",
-        "fade-in": "fade-in 0.4s ease-out",
-        "spin-slow": "spin-slow 3s linear infinite",
-        "glow": "glow 2s ease-in-out infinite",
-      },
-      backgroundImage: {
-        "grid-pattern": "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)",
-        "hero-gradient": "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%)",
-      },
-      backgroundSize: {
-        "grid": "40px 40px",
       },
     },
   },
