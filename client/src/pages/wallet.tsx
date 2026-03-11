@@ -1,572 +1,432 @@
-import { useState, useCallback, useEffect } from "react";
-import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import type { Transaction } from "@shared/schema";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useParams, useLocation } from "wouter";
 import {
-  generateSeedWords, generateAddress, formatZTH, formatCompact,
-  timeAgo,
-  deriveEvmAddress, deriveSolanaAddress,
-  loadCustomTokens, saveCustomTokens,
-  type CustomToken, SUPPORTED_NETWORKS,
-} from "@/lib/chain-utils";
-import { saveSeedPhrase, getSeedPhrase } from "@/lib/pin-security";
-import { deriveEvmFromSeed, deriveSolanaFromSeed } from "@/lib/bip44";
-import { PinLock } from "@/components/pin-lock";
-import { AddTokenModal } from "@/components/add-token-modal";
-import { SiEthereum, SiSolana } from "react-icons/si";
-import {
-  Copy, Eye, EyeOff, Send, ArrowDownLeft, Plus,
-  Download, ChevronDown, Check, ExternalLink,
-  TrendingUp, RefreshCw, Trash2, ArrowRight, ScanLine, Search,
+  Wallet, Copy, CheckCheck, ChevronLeft, TrendingUp, TrendingDown,
+  ArrowLeftRight, Send, RefreshCw, Globe, Coins, ExternalLink, AlertCircle,
 } from "lucide-react";
-import { QrScanner } from "@/components/qr-scanner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { shortHash, timeAgo, formatZTH, formatNumber } from "@/lib/chain-utils";
+import { Link } from "wouter";
+import { useState } from "react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import zerithLogo from "@assets/zerith-logo_1773195626329.png";
 
-const zerithLogoPath = "/zerith-logo.png";
+const EVM_CHAINS = [
+  { id: "ethereum", label: "Ethereum", symbol: "ETH", color: "bg-blue-500/15 text-blue-400" },
+  { id: "binance-smart-chain", label: "BNB Chain", symbol: "BNB", color: "bg-yellow-500/15 text-yellow-400" },
+  { id: "polygon-pos", label: "Polygon", symbol: "MATIC", color: "bg-purple-500/15 text-purple-400" },
+  { id: "arbitrum-one", label: "Arbitrum", symbol: "ETH", color: "bg-sky-500/15 text-sky-400" },
+  { id: "base", label: "Base", symbol: "ETH", color: "bg-blue-600/15 text-blue-400" },
+];
 
-const STORAGE_ADDRESS_KEY = "zerith-wallet-address";
-const STORAGE_NETWORK_KEY = "zerith-network";
-type Network = "mainnet" | "testnet";
-type WalletMode = "none" | "create" | "import" | "pin-setup";
-type ChainTab = "zerith" | "evm" | "solana";
-
-function NetworkBadge({ network }: { network: string }) {
-  const n = SUPPORTED_NETWORKS.find(x => x.id === network);
-  const color = n?.color ?? "#888";
-  const label = n?.label ?? network;
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border" style={{ borderColor: color + "40", color, background: color + "12" }}>
-      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-      {label}
-    </span>
+    <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded" data-testid="button-copy">
+      {copied ? <CheckCheck className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
   );
 }
 
-function TokenRow({ token, onRemove }: { token: CustomToken; onRemove: (id: string) => void }) {
-  const [showRemove, setShowRemove] = useState(false);
+function AddressSearch() {
+  const [addr, setAddr] = useState("");
+  const [, setLocation] = useLocation();
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = addr.trim();
+    if (q) setLocation(`/wallet/${q}`);
+  };
   return (
-    <div
-      className="flex items-center gap-3 hover:bg-muted/40 rounded-xl px-2 py-2.5 -mx-2 transition-colors cursor-pointer"
-      onClick={() => setShowRemove(v => !v)}
-      data-testid={`token-row-${token.symbol.toLowerCase()}`}
-    >
-      {token.logoUrl ? (
-        <img src={token.logoUrl} alt={token.symbol} className="w-9 h-9 rounded-full object-cover border border-border flex-shrink-0" />
-      ) : (
-        <div
-          className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-          style={{ background: (SUPPORTED_NETWORKS.find(n => n.id === token.network)?.color ?? "#888") + "20", color: SUPPORTED_NETWORKS.find(n => n.id === token.network)?.color ?? "#888" }}
-        >
-          {token.symbol.slice(0, 2)}
+    <form onSubmit={handleSubmit} className="flex gap-2">
+      <input
+        data-testid="input-wallet-address"
+        value={addr}
+        onChange={e => setAddr(e.target.value)}
+        placeholder="Enter ZTH (zth1…), ETH (0x…), or Solana address"
+        className="flex-1 h-10 px-4 rounded-lg border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      />
+      <button type="submit" data-testid="button-wallet-lookup"
+        className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shrink-0">
+        View
+      </button>
+    </form>
+  );
+}
+
+function ZthBalance({ address, network }: { address: string; network: "mainnet" | "testnet" }) {
+  const { data, isLoading } = useQuery<any>({
+    queryKey: [`/api/${network}/wallet/${address}`],
+    enabled: address.startsWith("zth1"),
+  });
+  const isTestnet = network === "testnet";
+  const symbol = isTestnet ? "tZTH" : "ZTH";
+  const balance = data?.balance ?? "0";
+  const staked = data?.stakedBalance ?? "0";
+  const txCount = data?.transactions?.length ?? 0;
+
+  return (
+    <Card className={isTestnet ? "border-amber-500/20" : "border-primary/20"}>
+      <CardContent className="p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <img src={zerithLogo} alt="ZTH" className="w-8 h-8 rounded-full" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">{isTestnet ? "Zerith Testnet" : "Zerith Mainnet"}</p>
+            <Badge variant="outline" className={`text-xs ${isTestnet ? "border-amber-500/30 text-amber-400" : "border-primary/30 text-primary"}`}>
+              {symbol}
+            </Badge>
+          </div>
         </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-medium">{token.name}</span>
-          <NetworkBadge network={token.network} />
+        {!address.startsWith("zth1") ? (
+          <p className="text-xs text-muted-foreground">ZTH balance only available for zth1… addresses</p>
+        ) : isLoading ? (
+          <Skeleton className="h-8 w-36 mb-2" />
+        ) : (
+          <>
+            <p className="text-2xl font-bold text-foreground">{parseFloat(balance).toLocaleString("en", { maximumFractionDigits: 4 })} <span className="text-base font-normal text-muted-foreground">{symbol}</span></p>
+            {parseFloat(staked) > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">Staked: {parseFloat(staked).toLocaleString("en", { maximumFractionDigits: 4 })} {symbol}</p>
+            )}
+            {txCount > 0 && <p className="text-xs text-muted-foreground mt-1">{txCount} transactions</p>}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EvmBalance({ address, chain }: { address: string; chain: typeof EVM_CHAINS[0] }) {
+  const isEvm = address.startsWith("0x") && address.length === 42;
+  const { data, isLoading } = useQuery<any>({
+    queryKey: [`/api/eth/balance/${address}?chain=${chain.id}`],
+    queryFn: async () => {
+      const r = await fetch(`/api/eth/balance/${address}?chain=${chain.id}`);
+      if (!r.ok) throw new Error("Failed");
+      return r.json();
+    },
+    enabled: isEvm,
+  });
+
+  if (!isEvm) return null;
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${chain.color}`}>
+              {chain.symbol.slice(0, 1)}
+            </div>
+            <div>
+              <p className="text-xs font-medium text-foreground">{chain.label}</p>
+              <p className="text-xs text-muted-foreground">{chain.symbol}</p>
+            </div>
+          </div>
+          {isLoading ? (
+            <Skeleton className="h-5 w-20" />
+          ) : data?.balance ? (
+            <p className="text-sm font-semibold text-foreground">{parseFloat(data.balance).toFixed(4)} {chain.symbol}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">—</p>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground font-mono truncate">
-          {token.symbol}
-          {token.price != null && ` · $${token.price.toFixed(token.price < 0.01 ? 6 : 4)}`}
-        </p>
-      </div>
-      <div className="text-right flex-shrink-0">
-        <p className="text-sm font-semibold font-mono">{token.balanceFormatted || "0"}</p>
-        <p className="text-xs text-muted-foreground">{token.symbol}</p>
-      </div>
-      {showRemove && (
-        <button
-          onClick={e => { e.stopPropagation(); onRemove(token.id); }}
-          className="ml-1 p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
-          data-testid={`button-remove-token-${token.symbol.toLowerCase()}`}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-      )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SolBalance({ address }: { address: string }) {
+  const isSol = !address.startsWith("0x") && !address.startsWith("zth") && address.length >= 32 && address.length <= 44;
+  const { data, isLoading } = useQuery<any>({
+    queryKey: [`/api/sol/balance/${address}`],
+    queryFn: async () => {
+      const r = await fetch(`/api/sol/balance/${address}`);
+      if (!r.ok) throw new Error("Failed");
+      return r.json();
+    },
+    enabled: isSol,
+  });
+
+  if (!isSol) return null;
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">S</div>
+            <div>
+              <p className="text-xs font-medium text-foreground">Solana</p>
+              <p className="text-xs text-muted-foreground">SOL</p>
+            </div>
+          </div>
+          {isLoading ? (
+            <Skeleton className="h-5 w-20" />
+          ) : data?.balance ? (
+            <p className="text-sm font-semibold text-foreground">{parseFloat(data.balance).toFixed(4)} SOL</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">—</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SendModal({ address, network, onClose }: { address: string; network: "mainnet" | "testnet"; onClose: () => void }) {
+  const [to, setTo] = useState("");
+  const [amount, setAmount] = useState("");
+  const { toast } = useToast();
+  const symbol = network === "testnet" ? "tZTH" : "ZTH";
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const r = await apiRequest("POST", `/api/${network}/wallet/send`, { from: address, to, amount, network });
+      return r.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Transaction submitted", description: `Hash: ${shortHash(data.hash, 8)}` });
+      queryClient.invalidateQueries({ queryKey: [`/api/${network}/wallet/${address}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/${network}/transactions`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/${network}/blocks`] });
+      onClose();
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Send className="w-4 h-4 text-primary" />
+            Send {symbol}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">From</label>
+            <p className="text-xs font-mono text-foreground bg-secondary/50 rounded px-3 py-2 break-all">{address}</p>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">To Address</label>
+            <input
+              data-testid="input-send-to"
+              value={to}
+              onChange={e => setTo(e.target.value)}
+              placeholder="zth1…"
+              className="w-full h-9 px-3 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Amount ({symbol})</label>
+            <input
+              data-testid="input-send-amount"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              placeholder="0.0000"
+              type="number"
+              min="0"
+              step="0.0001"
+              className="w-full h-9 px-3 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button onClick={onClose} className="flex-1 h-9 rounded border border-border text-sm font-medium hover:bg-secondary/50 transition-colors">
+              Cancel
+            </button>
+            <button
+              data-testid="button-send-submit"
+              onClick={() => mutation.mutate()}
+              disabled={mutation.isPending || !to || !amount}
+              className="flex-1 h-9 rounded bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {mutation.isPending ? "Sending…" : "Send"}
+            </button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
 export default function WalletPage() {
-  const { toast } = useToast();
-  const [address, setAddress] = useState<string | null>(() => localStorage.getItem(STORAGE_ADDRESS_KEY));
-  const [network, setNetwork] = useState<Network>(() => (localStorage.getItem(STORAGE_NETWORK_KEY) as Network) ?? "mainnet");
-  const [mode, setMode] = useState<WalletMode>("none");
-  const [showBalance, setShowBalance] = useState(true);
-  const [seedWords, setSeedWords] = useState<string[]>([]);
-  const [importPhrase, setImportPhrase] = useState("");
-  const [seedConfirmed, setSeedConfirmed] = useState(false);
-  const [networkOpen, setNetworkOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [chainTab, setChainTab] = useState<ChainTab>("zerith");
-  const [addTokenOpen, setAddTokenOpen] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
-  const [tokens, setTokens] = useState<CustomToken[]>([]);
-  const [pendingAddress, setPendingAddress] = useState<string | null>(null);
-  const [pendingSeed, setPendingSeed] = useState<string | null>(null);
-  const [evmAddress, setEvmAddress] = useState(() => {
-    const a = localStorage.getItem(STORAGE_ADDRESS_KEY);
-    if (!a) return "";
-    const sp = getSeedPhrase(a);
-    if (sp) return deriveEvmFromSeed(sp);
-    return deriveEvmAddress(a);
-  });
-  const [solanaAddress, setSolanaAddress] = useState(() => {
-    const a = localStorage.getItem(STORAGE_ADDRESS_KEY);
-    if (!a) return "";
-    const sp = getSeedPhrase(a);
-    if (sp) return deriveSolanaFromSeed(sp);
-    return deriveSolanaAddress(a);
+  const params = useParams<{ addr: string }>();
+  const addr = params.addr ?? "";
+  const [network, setNetwork] = useState<"mainnet" | "testnet">("mainnet");
+  const [showSend, setShowSend] = useState(false);
+
+  const { data: walletData, isLoading: walletLoading } = useQuery<any>({
+    queryKey: [`/api/${network}/wallet/${addr}`],
+    enabled: !!addr && addr.startsWith("zth1"),
   });
 
-  useEffect(() => {
-    if (!address) { setEvmAddress(""); setSolanaAddress(""); return; }
-    const sp = getSeedPhrase(address);
-    if (sp) {
-      setEvmAddress(deriveEvmFromSeed(sp));
-      setSolanaAddress(deriveSolanaFromSeed(sp));
-    } else {
-      setEvmAddress(deriveEvmAddress(address));
-      setSolanaAddress(deriveSolanaAddress(address));
-    }
-  }, [address]);
+  const txs: any[] = Array.isArray(walletData?.transactions) ? walletData.transactions : [];
+  const symbol = network === "testnet" ? "tZTH" : "ZTH";
 
-  useEffect(() => {
-    if (address) setTokens(loadCustomTokens(address));
-  }, [address]);
+  const isZth = addr.startsWith("zth1");
+  const isEvm = addr.startsWith("0x") && addr.length === 42;
+  const isSol = !addr.startsWith("0x") && !addr.startsWith("zth") && addr.length >= 32 && addr.length <= 44;
 
-  const { data: walletInfo, isLoading, refetch } = useQuery<{
-    balance: string; stakedBalance: string; nonce: number;
-    transactions: Transaction[]; isDeveloper: boolean; walletName: string | null;
-  }>({
-    queryKey: ["/api/wallet", address, network],
-    queryFn: async () => {
-      if (!address) throw new Error("No address");
-      const res = await fetch(`/api/wallet?address=${address}&network=${network}`);
-      return res.json();
-    },
-    enabled: !!address,
-    refetchInterval: 10000,
-  });
-
-  const openCreate = () => { setSeedWords(generateSeedWords()); setSeedConfirmed(false); setMode("create"); };
-
-  const confirmCreate = () => {
-    const seed = seedWords.join(" ");
-    const addr = generateAddress(seed + Date.now());
-    setPendingAddress(addr);
-    setPendingSeed(seed);
-    setMode("pin-setup");
-  };
-
-  const confirmImport = () => {
-    const words = importPhrase.trim().split(/\s+/);
-    if (words.length !== 12 && words.length !== 24) {
-      toast({ title: "Invalid phrase", description: "Please enter a 12 or 24-word seed phrase.", variant: "destructive" });
-      return;
-    }
-    const seed = importPhrase.trim();
-    const addr = generateAddress(seed);
-    setPendingAddress(addr);
-    setPendingSeed(seed);
-    setMode("pin-setup");
-  };
-
-  const finishWalletSetup = () => {
-    if (!pendingAddress) return;
-    if (pendingSeed) saveSeedPhrase(pendingAddress, pendingSeed);
-    setAddress(pendingAddress);
-    localStorage.setItem(STORAGE_ADDRESS_KEY, pendingAddress);
-    setMode("none");
-    setPendingAddress(null);
-    setPendingSeed(null);
-    toast({ title: "Wallet ready", description: "Secured with your passkey." });
-  };
-
-  const disconnect = () => { setAddress(null); localStorage.removeItem(STORAGE_ADDRESS_KEY); };
-
-  const activeAddress = chainTab === "evm" ? evmAddress : chainTab === "solana" ? solanaAddress : (address ?? "");
-
-  const copyAddress = useCallback(() => {
-    if (!activeAddress) return;
-    navigator.clipboard.writeText(activeAddress);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }, [activeAddress]);
-
-  const switchNetwork = (n: Network) => {
-    setNetwork(n);
-    localStorage.setItem(STORAGE_NETWORK_KEY, n);
-    setNetworkOpen(false);
-  };
-
-  const handleAddToken = (token: CustomToken) => {
-    if (!address) return;
-    setTokens(prev => {
-      const filtered = prev.filter(t => t.id !== token.id);
-      const updated = [...filtered, token];
-      saveCustomTokens(address, updated);
-      return updated;
-    });
-  };
-
-  const handleRemoveToken = (id: string) => {
-    if (!address) return;
-    setTokens(prev => {
-      const updated = prev.filter(t => t.id !== id);
-      saveCustomTokens(address, updated);
-      return updated;
-    });
-    toast({ title: "Token removed" });
-  };
-
-  if (!address) {
-    if (mode === "pin-setup" && pendingAddress) {
-      return (
-        <PinLock
-          mode="setup"
-          setupTitle="Secure Your Wallet"
-          onSuccess={finishWalletSetup}
-          onCancel={() => { setPendingAddress(null); setPendingSeed(null); setMode("none"); }}
-        />
-      );
-    }
-
+  if (!addr) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <div className="px-5 pt-8 pb-6 text-center">
-          <div className="w-20 h-20 rounded-2xl overflow-hidden mx-auto mb-5 border border-border/40 shadow-sm">
-            <img src={zerithLogoPath} alt="Zerith" className="w-full h-full object-cover" />
-          </div>
-          <h1 className="text-2xl font-semibold text-foreground">Zerith Wallet</h1>
-          <p className="text-muted-foreground text-sm mt-1.5">Your multi-chain gateway</p>
-        </div>
-
-        <div className="px-5 space-y-3 max-w-sm mx-auto w-full">
-          <Button className="w-full h-12 rounded-xl shadow-sm" onClick={openCreate} data-testid="button-create-wallet">
-            <Plus className="w-4 h-4 mr-2" />Create New Wallet
-          </Button>
-          <Button variant="outline" className="w-full h-12 rounded-xl border-border" onClick={() => setMode("import")} data-testid="button-import-wallet">
-            <Download className="w-4 h-4 mr-2" />Import with Seed Phrase
-          </Button>
-        </div>
-
-        <Dialog open={mode === "create"} onOpenChange={(o) => !o && setMode("none")}>
-          <DialogContent className="max-w-sm rounded-2xl">
-            <DialogHeader><DialogTitle>Your Seed Phrase</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-                <p className="text-xs text-amber-700 font-medium">Store this safely — it cannot be recovered.</p>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5" data-testid="seed-phrase-grid">
-                {seedWords.map((word, i) => (
-                  <div key={i} className="flex items-center gap-1.5 bg-secondary rounded-lg px-2.5 py-1.5">
-                    <span className="text-[10px] text-muted-foreground w-4 text-right flex-shrink-0">{i + 1}</span>
-                    <span className="text-xs font-mono font-medium">{word}</span>
-                  </div>
-                ))}
-              </div>
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input type="checkbox" checked={seedConfirmed} onChange={e => setSeedConfirmed(e.target.checked)} className="rounded" data-testid="checkbox-seed-confirmed" />
-                <span className="text-sm text-muted-foreground">I've saved my seed phrase</span>
-              </label>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setMode("none")} className="flex-1 rounded-xl">Cancel</Button>
-                <Button onClick={confirmCreate} disabled={!seedConfirmed} className="flex-1 rounded-xl" data-testid="button-confirm-create">Create Wallet</Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={mode === "import"} onOpenChange={(o) => !o && setMode("none")}>
-          <DialogContent className="max-w-sm rounded-2xl">
-            <DialogHeader><DialogTitle>Import Wallet</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Seed Phrase (12 or 24 words)</Label>
-                <textarea
-                  className="w-full mt-2 px-3 py-2.5 rounded-xl border border-border bg-secondary/40 text-sm font-mono resize-none h-24 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  placeholder="Enter words separated by spaces..."
-                  value={importPhrase}
-                  onChange={e => setImportPhrase(e.target.value)}
-                  data-testid="input-seed-phrase"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setMode("none")} className="flex-1 rounded-xl">Cancel</Button>
-                <Button onClick={confirmImport} className="flex-1 rounded-xl" data-testid="button-confirm-import">Import</Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+      <div className="space-y-6 max-w-2xl mx-auto">
+        <h1 className="text-2xl font-bold text-foreground">Wallet Lookup</h1>
+        <p className="text-muted-foreground text-sm">Enter any wallet address to view balances across ZTH, Ethereum, and Solana networks.</p>
+        <AddressSearch />
       </div>
     );
   }
 
-  const balance = walletInfo?.balance ?? "0";
-  const recentTxs = walletInfo?.transactions?.slice(0, 5) ?? [];
-
   return (
-    <div className="min-h-screen bg-muted/30">
-      <div className="bg-primary px-5 pt-10 pb-16">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <button onClick={() => setNetworkOpen(!networkOpen)} className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1 text-white text-xs" data-testid="button-network-switch">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-300" />
-                <span className="capitalize">{network}</span>
-                <ChevronDown className="w-3 h-3" />
-              </button>
-              {networkOpen && (
-                <div className="absolute left-0 top-full mt-1 w-32 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden">
-                  {(["mainnet", "testnet"] as Network[]).map(n => (
-                    <button key={n} onClick={() => switchNetwork(n)} className="flex items-center justify-between w-full px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors" data-testid={`option-network-${n}`}>
-                      <span className="capitalize">{n}</span>
-                      {network === n && <Check className="w-3.5 h-3.5 text-primary" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Link href="/scan" className="bg-white/15 backdrop-blur-sm rounded-full px-2.5 py-1 text-white flex items-center gap-1.5 text-xs font-medium" data-testid="link-zenithscan">
-              <Search className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">ZenithScan</span>
-            </Link>
-            <button onClick={() => refetch()} className="bg-white/15 backdrop-blur-sm rounded-full p-1.5 text-white" data-testid="button-refresh">
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {showSend && isZth && (
+        <SendModal address={addr} network={network} onClose={() => setShowSend(false)} />
+      )}
 
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <p className="text-white/70 text-sm">Total Balance</p>
-            <button onClick={() => setShowBalance(!showBalance)} className="text-white/70" data-testid="button-toggle-balance">
-              {showBalance ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            </button>
+      <div className="flex items-center gap-3">
+        <Link href="/">
+          <span className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground cursor-pointer">
+            <ChevronLeft className="w-4 h-4" />
+            Home
+          </span>
+        </Link>
+        <span className="text-muted-foreground">/</span>
+        <span className="text-sm font-mono text-foreground truncate">{shortHash(addr, 10)}</span>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Wallet className="w-5 h-5 text-primary" />
+            Wallet
+          </h1>
+          <div className="flex items-center gap-1 mt-1">
+            <p className="text-xs font-mono text-muted-foreground break-all">{addr}</p>
+            <CopyBtn text={addr} />
           </div>
-          {isLoading ? (
-            <Skeleton className="h-10 w-48 mx-auto bg-white/20" />
-          ) : (
-            <div className="text-4xl font-bold text-white font-mono" data-testid="wallet-balance">
-              {showBalance ? formatZTH(balance, 2) : "••••••"}
-            </div>
+          {walletData?.walletName && (
+            <Badge variant="outline" className="mt-2 text-xs">{walletData.walletName}</Badge>
           )}
-          {walletInfo?.stakedBalance && parseFloat(walletInfo.stakedBalance) > 0 && (
-            <p className="text-white/60 text-sm mt-1.5 flex items-center justify-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5" />{formatZTH(walletInfo.stakedBalance, 2)} staked
-            </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {isZth && (
+            <>
+              <div className="flex items-center rounded-lg border border-border overflow-hidden text-xs">
+                <button
+                  data-testid="button-network-mainnet"
+                  onClick={() => setNetwork("mainnet")}
+                  className={`px-3 py-1.5 font-medium transition-colors ${network === "mainnet" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary/60"}`}
+                >
+                  Mainnet
+                </button>
+                <button
+                  data-testid="button-network-testnet"
+                  onClick={() => setNetwork("testnet")}
+                  className={`px-3 py-1.5 font-medium transition-colors ${network === "testnet" ? "bg-amber-500 text-white" : "text-muted-foreground hover:bg-secondary/60"}`}
+                >
+                  Testnet
+                </button>
+              </div>
+              <button
+                data-testid="button-send-zth"
+                onClick={() => setShowSend(true)}
+                className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Send {symbol}
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      {showScanner && (
-        <QrScanner
-          onScan={(addr) => {
-            setShowScanner(false);
-            window.location.href = `/wallet/send?to=${encodeURIComponent(addr)}`;
-          }}
-          onClose={() => setShowScanner(false)}
-        />
-      )}
-
-      <div className="-mt-10 px-4 space-y-4 pb-6">
-        <div className="flex gap-2">
-          <Button asChild className="flex-1 h-12 rounded-xl shadow-md bg-white text-primary hover:bg-white/90 border border-primary/10" data-testid="button-send">
-            <Link href="/wallet/send"><Send className="w-4 h-4 mr-1.5" />Send</Link>
-          </Button>
-          <Button asChild className="flex-1 h-12 rounded-xl shadow-md bg-white text-primary hover:bg-white/90 border border-primary/10" data-testid="button-receive">
-            <Link href="/wallet/receive"><ArrowDownLeft className="w-4 h-4 mr-1.5" />Receive</Link>
-          </Button>
-          <Button
-            onClick={() => setShowScanner(true)}
-            className="flex-1 h-12 rounded-xl shadow-md bg-white text-primary hover:bg-white/90 border border-primary/10"
-            data-testid="button-scan"
-          >
-            <ScanLine className="w-4 h-4 mr-1.5" />Scan
-          </Button>
-        </div>
-
-        <Card className="rounded-2xl shadow-sm border-card-border">
-          <CardContent className="p-0">
-            <div className="flex border-b border-border/60">
-              <button
-                onClick={() => setChainTab("zerith")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2 ${chainTab === "zerith" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                data-testid="tab-chain-zerith"
-              >
-                <img src={zerithLogoPath} alt="ZTH" className="w-3.5 h-3.5 rounded-sm object-cover" />
-                Zerith
-              </button>
-              <button
-                onClick={() => setChainTab("evm")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2 ${chainTab === "evm" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                data-testid="tab-chain-evm"
-              >
-                <SiEthereum className="w-3.5 h-3.5 text-[#627EEA]" />
-                EVM
-              </button>
-              <button
-                onClick={() => setChainTab("solana")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2 ${chainTab === "solana" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                data-testid="tab-chain-solana"
-              >
-                <SiSolana className="w-3.5 h-3.5 text-[#9945FF]" />
-                Solana
-              </button>
-            </div>
-            <div className="p-4">
-              {chainTab === "zerith" && (
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Zerith Chain Address</p>
-                  <div className="flex items-start gap-2">
-                    <code className="text-xs font-mono text-foreground/80 break-all flex-1" data-testid="wallet-address">{address}</code>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={copyAddress} className="p-1 rounded-md hover:bg-muted transition-colors" data-testid="button-copy-address">
-                        {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
-                      </button>
-                      <Link href={`/explorer/address/${address}`} className="p-1 rounded-md hover:bg-muted transition-colors">
-                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {chainTab === "evm" && (
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">EVM Address (Ethereum, BNB, Polygon…)</p>
-                  <div className="flex items-start gap-2">
-                    <code className="text-xs font-mono text-foreground/80 break-all flex-1" data-testid="wallet-evm-address">{evmAddress}</code>
-                    <button onClick={copyAddress} className="p-1 rounded-md hover:bg-muted transition-colors flex-shrink-0" data-testid="button-copy-evm">
-                      {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {["Ethereum", "BNB Chain", "Polygon", "Arbitrum", "Optimism", "Base", "Avalanche"].map(l => (
-                      <span key={l} className="text-[9px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground">{l}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {chainTab === "solana" && (
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Solana Address</p>
-                  <div className="flex items-start gap-2">
-                    <code className="text-xs font-mono text-foreground/80 break-all flex-1" data-testid="wallet-solana-address">{solanaAddress}</code>
-                    <button onClick={copyAddress} className="p-1 rounded-md hover:bg-muted transition-colors flex-shrink-0" data-testid="button-copy-solana">
-                      {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl shadow-sm border-card-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-foreground">Assets</p>
-              <button
-                onClick={() => setAddTokenOpen(true)}
-                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
-                data-testid="button-add-token"
-              >
-                <Plus className="w-3.5 h-3.5" />Add token
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3 py-2.5 border-b border-border/40 last:border-0">
-              <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-border/40">
-                <img src={zerithLogoPath} alt="ZTH" className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Zerith</p>
-                <p className="text-xs text-muted-foreground">Zerith Chain · ZTH</p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                {isLoading ? (
-                  <Skeleton className="h-4 w-20" />
-                ) : (
-                  <>
-                    <p className="text-sm font-semibold font-mono" data-testid="asset-zth-balance">
-                      {showBalance ? formatCompact(balance) : "••••"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">ZTH</p>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {tokens.length === 0 && (
-              <div className="py-6 text-center">
-                <p className="text-xs text-muted-foreground">No custom tokens added yet</p>
-                <button onClick={() => setAddTokenOpen(true)} className="mt-2 text-xs text-primary hover:underline" data-testid="button-add-first-token">
-                  + Add your first token
-                </button>
-              </div>
-            )}
-
-            {tokens.map(token => (
-              <TokenRow key={token.id} token={token} onRemove={handleRemoveToken} />
-            ))}
-          </CardContent>
-        </Card>
-
-        {recentTxs.length > 0 && (
-          <Card className="rounded-2xl shadow-sm border-card-border">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-semibold text-foreground">Recent Activity</p>
-                <Link href="/history" className="text-xs text-primary font-medium" data-testid="link-view-all-history">View all</Link>
-              </div>
-              <div className="space-y-3">
-                {recentTxs.map((tx: Transaction) => (
-                  <Link key={tx.hash} href={`/explorer/tx/${tx.hash}`} className="flex items-center gap-3 hover:bg-muted/50 rounded-xl p-2 -mx-2 transition-colors">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${tx.from === address ? "bg-red-50" : "bg-green-50"}`}>
-                      {tx.from === address
-                        ? <ArrowRight className="w-4 h-4 text-red-500" />
-                        : <ArrowDownLeft className="w-4 h-4 text-green-500" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium capitalize">{tx.type}</span>
-                        <span className={`text-sm font-semibold font-mono ${tx.from === address ? "text-red-500" : "text-green-600"}`}>
-                          {tx.from === address ? "-" : "+"}{parseFloat(tx.amount).toFixed(2)} ZTH
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-muted-foreground">{timeAgo(tx.timestamp)}</span>
-                        <span className={`text-xs capitalize ${tx.status === "success" ? "text-green-600" : "text-red-500"}`}>{tx.status}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+      {/* Balance cards */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {isZth && (
+          <>
+            <ZthBalance address={addr} network="mainnet" />
+            <ZthBalance address={addr} network="testnet" />
+          </>
+        )}
+        {isEvm && EVM_CHAINS.map(chain => (
+          <EvmBalance key={chain.id} address={addr} chain={chain} />
+        ))}
+        {isSol && <SolBalance address={addr} />}
+        {!isZth && !isEvm && !isSol && (
+          <Card>
+            <CardContent className="p-5 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+              <p className="text-sm text-muted-foreground">Unknown address format. ZTH addresses start with zth1, EVM addresses start with 0x (42 chars), Solana addresses are 32–44 chars.</p>
             </CardContent>
           </Card>
         )}
-
-        <button onClick={disconnect} className="w-full py-3 text-sm text-muted-foreground hover:text-destructive transition-colors" data-testid="button-disconnect">
-          Disconnect Wallet
-        </button>
       </div>
 
-      <AddTokenModal
-        open={addTokenOpen}
-        onClose={() => setAddTokenOpen(false)}
-        walletAddress={address}
-        evmAddress={evmAddress}
-        solanaAddress={solanaAddress}
-        onAdd={handleAddToken}
-      />
+      {/* ZTH Transaction History */}
+      {isZth && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ArrowLeftRight className="w-4 h-4 text-primary" />
+              Transaction History
+              <Badge variant="outline" className="text-xs ml-1">{network === "testnet" ? "Testnet" : "Mainnet"}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {walletLoading ? (
+              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 mb-2" />)
+            ) : txs.length === 0 ? (
+              <div className="text-center py-10">
+                <ArrowLeftRight className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-50" />
+                <p className="text-muted-foreground text-sm">No transactions on {network}</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/40">
+                {txs.map((tx: any, i: number) => {
+                  const hash = tx.hash ?? "";
+                  const from = tx.from ?? "";
+                  const to = tx.to ?? "";
+                  const isIncoming = to.toLowerCase() === addr.toLowerCase();
+                  const ts = tx.timestamp;
+                  const status = tx.status ?? "pending";
+                  const type = tx.type ?? "transfer";
+                  const amount = parseFloat(tx.amount ?? "0");
+                  return (
+                    <div key={hash || i} className="grid grid-cols-[auto_1fr_auto_auto] gap-3 items-center py-3 hover:bg-secondary/30 rounded-lg px-3 -mx-3 transition-colors">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isIncoming ? "bg-green-500/15" : "bg-red-500/15"}`}>
+                        {isIncoming ? <TrendingDown className="w-4 h-4 text-green-400" /> : <TrendingUp className="w-4 h-4 text-red-400" />}
+                      </div>
+                      <div className="min-w-0">
+                        <Link href={`/tx/${hash}`}>
+                          <span className="text-sm font-mono text-primary hover:underline cursor-pointer truncate block">{shortHash(hash, 10)}</span>
+                        </Link>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span>{isIncoming ? "from" : "to"}</span>
+                          <Link href={`/address/${isIncoming ? from : to}`}>
+                            <span className="font-mono hover:text-primary cursor-pointer">{shortHash(isIncoming ? from : to, 6)}</span>
+                          </Link>
+                          <Badge variant="outline" className="text-xs capitalize">{type}</Badge>
+                        </div>
+                      </div>
+                      <p className={`text-sm font-medium ${isIncoming ? "text-green-400" : "text-red-400"}`}>
+                        {isIncoming ? "+" : "-"}{parseFloat(tx.amount).toFixed(4)} {symbol}
+                      </p>
+                      <div className="text-right">
+                        <Badge variant={status === "success" ? "success" : "destructive"} className="text-xs">{status}</Badge>
+                        <p className="text-xs text-muted-foreground mt-0.5">{ts ? timeAgo(ts) : "—"}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
