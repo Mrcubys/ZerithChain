@@ -12,7 +12,7 @@ import { Link } from "wouter";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import zerithLogo from "@assets/zerith-logo_1773195626329.png";
+import zerithLogo from "@assets/zerith-logo_1773200744409.png";
 
 const EVM_CHAINS = [
   { id: "ethereum", label: "Ethereum", symbol: "ETH", color: "bg-blue-500/15 text-blue-400" },
@@ -20,6 +20,7 @@ const EVM_CHAINS = [
   { id: "polygon-pos", label: "Polygon", symbol: "MATIC", color: "bg-purple-500/15 text-purple-400" },
   { id: "arbitrum-one", label: "Arbitrum", symbol: "ETH", color: "bg-sky-500/15 text-sky-400" },
   { id: "base", label: "Base", symbol: "ETH", color: "bg-blue-600/15 text-blue-400" },
+  { id: "optimistic-ethereum", label: "Optimism", symbol: "ETH", color: "bg-red-500/15 text-red-400" },
 ];
 
 function CopyBtn({ text }: { text: string }) {
