@@ -1,5 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -29,8 +31,11 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
+    const key = queryKey[0] as string;
+    const url = key.startsWith("http") ? key : `${API_BASE}${key}`;
+
+    const res = await fetch(url, {
+      credentials: "omit",
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
@@ -47,7 +52,7 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      staleTime: 10_000,
       retry: false,
     },
     mutations: {
