@@ -276,7 +276,7 @@ export class BlockchainStorage {
   getAddressInfo(address: string) {
     const devWallet = this.getDeveloperWallet(address);
     const txs = this.getTransactionsByAddress(address, 50);
-    const validator = this.publicValidators.find(v => v.address === address);
+    const validator = this.networkOperators.find(v => v.address === address);
 
     if (devWallet) {
       return {
@@ -311,11 +311,11 @@ export class BlockchainStorage {
   }
 
   getValidators(): Validator[] {
-    return this.publicValidators;
+    return this.networkOperators;
   }
 
   getValidator(address: string): Validator | undefined {
-    return this.publicValidators.find(v => v.address === address);
+    return this.networkOperators.find(v => v.address === address);
   }
 
   getNetworkStatus(network: string): NetworkStatus {
@@ -330,7 +330,7 @@ export class BlockchainStorage {
       tps: Math.floor(Math.random() * 2000) + 3000,
       peakTps: 5000,
       activeValidators,
-      totalValidators: this.publicValidators.length,
+      totalValidators: this.networkOperators.length,
       totalSupply: "1000000000.0000",
       circulatingSupply: "350000000.0000",
       totalStaked: totalStaked.toFixed(4),
