@@ -1,202 +1,192 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { shortHash, formatZTH, timeAgo } from "@/lib/chain-utils";
-import { Layers, ArrowRightLeft, Activity, Zap, Clock, Search, ArrowRight, FlaskConical } from "lucide-react";
+  import { useQuery } from "@tanstack/react-query";
+  import { Link, useLocation } from "wouter";
+  import { shortHash, formatZTH, timeAgo } from "@/lib/chain-utils";
+  import { Layers, ArrowRightLeft, Activity, Search, ArrowRight, Box, Users } from "lucide-react";
 
-interface Block {
-  height: number; hash: string; timestamp: string;
-  validatorName: string; validator: string; transactionCount: number; size: number;
-}
-interface Transaction {
-  hash: string; from: string; to: string; amount: string;
-  timestamp: string; status: string; type: string;
-}
-interface NetStatus {
-  blockHeight: number; tps: number; averageBlockTime: number;
-  totalValidators: number; activeValidators: number; totalTransactions: number;
-  totalSupply: string; chainId: string;
-}
+  interface Block {
+    height: number; hash: string; timestamp: string;
+    validatorName: string; validator: string; transactionCount: number; size: number;
+  }
+  interface Transaction {
+    hash: string; from: string; to: string; amount: string;
+    timestamp: string; status: string; type: string;
+  }
+  interface NetStatus {
+    blockHeight: number; tps: number; averageBlockTime: number;
+    totalValidators: number; activeValidators: number; totalTransactions: number;
+    totalSupply: string; chainId: string;
+  }
 
-export default function Home() {
-  const [query, setQuery] = useState("");
-  const [, navigate] = useLocation();
+  function formatNum(n: number): string {
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return n.toLocaleString();
+  }
 
-  const { data: blocks, isLoading: blocksLoading } = useQuery<Block[]>({
-    queryKey: ["/api/blocks?limit=10"],
-    refetchInterval: 10000,
-  });
+  export default function Home() {
+    const [query, setQuery] = useState("");
+    const [, navigate] = useLocation();
 
-  const { data: txs, isLoading: txsLoading } = useQuery<Transaction[]>({
-    queryKey: ["/api/transactions?limit=10"],
-    refetchInterval: 10000,
-  });
+    const { data: blocks, isLoading: blocksLoading } = useQuery<Block[]>({
+      queryKey: ["/api/blocks?limit=6"],
+      refetchInterval: 12000,
+    });
+    const { data: txs, isLoading: txsLoading } = useQuery<Transaction[]>({
+      queryKey: ["/api/transactions?limit=6"],
+      refetchInterval: 12000,
+    });
+    const { data: net } = useQuery<NetStatus>({
+      queryKey: ["/api/network/status"],
+      refetchInterval: 15000,
+    });
 
-  const { data: netStatus } = useQuery<NetStatus>({
-    queryKey: ["/api/network/status"],
-    refetchInterval: 15000,
-  });
+    const handleSearch = (e: React.FormEvent) => {
+      e.preventDefault();
+      const q = query.trim();
+      if (!q) return;
+      if (/^\d+$/.test(q)) navigate(`/block/${q}`);
+      else if (q.length === 64 && /^[0-9A-Fa-f]+$/.test(q)) navigate(`/tx/${q}`);
+      else navigate(`/address/${q}`);
+      setQuery("");
+    };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = query.trim();
-    if (!q) return;
-    if (/^\d+$/.test(q)) navigate(`/block/${q}`);
-    else if (q.length === 64 && /^[0-9A-Fa-f]+$/.test(q)) navigate(`/tx/${q}`);
-    else navigate(`/address/${q}`);
-    setQuery("");
-  };
+    const blockList = Array.isArray(blocks) ? blocks : [];
+    const txList = Array.isArray(txs) ? txs : [];
 
-  const blockList = Array.isArray(blocks) ? blocks : [];
-  const txList = Array.isArray(txs) ? txs : [];
-
-  return (
-    <div className="space-y-6">
-      {/* Hero */}
-      <div className="bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-transparent rounded-2xl p-6 border border-amber-300/30">
-        <div className="flex items-center gap-3 mb-2">
-          <img src="/zerith-logo.png" alt="ZerithScan Testnet" className="h-10 w-auto" />
-          <div>
-            <h1 className="text-xl font-bold text-foreground">ZerithScan — Testnet Explorer</h1>
-            <p className="text-sm text-muted-foreground">Chain ID: {netStatus?.chainId ?? "zerith-testnet-1"}</p>
+    return (
+      <div className="space-y-5">
+        {/* Hero Search */}
+        <div className="bg-gradient-to-r from-[#21325b] to-[#2c3e6d] rounded-xl px-6 py-8 text-white relative overflow-hidden">
+          <div className="absolute top-3 right-4">
+            <span className="px-2.5 py-1 rounded bg-orange-500/20 text-orange-300 text-[11px] font-bold uppercase tracking-wider border border-orange-500/30">Testnet</span>
           </div>
-          <Badge variant="outline" className="ml-auto border-amber-300 text-amber-700 bg-amber-50 text-xs">
-            ⚗ Test Network
-          </Badge>
+          <h1 className="text-xl font-semibold mb-1">ZerithScan Testnet Explorer</h1>
+          <p className="text-blue-200 text-sm mb-4">Explore the Zerith Chain Testnet</p>
+          <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search by Address / Txn Hash / Block Number"
+                className="w-full h-[42px] pl-10 pr-4 rounded-lg text-[13px] text-gray-900 bg-white border-0 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                data-testid="input-hero-search"
+              />
+            </div>
+            <button type="submit" className="h-[42px] px-5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors" data-testid="button-hero-search">
+              Search
+            </button>
+          </form>
         </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          Testnet is for testing the Zerith blockchain only. Testnet ZTH (tZTH) has no real value.
-        </p>
-        <form onSubmit={handleSearch} className="flex gap-2 max-w-xl">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <Input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Block height, tx hash, or address…"
-              className="pl-9 rounded-xl bg-white border-amber-200/60"
-              data-testid="input-home-search"
-            />
-          </div>
-          <Button type="submit" className="rounded-xl px-5 bg-amber-500 hover:bg-amber-600 text-white border-none" data-testid="button-search">
-            Search
-          </Button>
-        </form>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Block Height", value: netStatus?.blockHeight != null ? `#${netStatus.blockHeight.toLocaleString()}` : "—", icon: Layers, color: "text-amber-600" },
-          { label: "Block Time", value: netStatus?.averageBlockTime ? `${netStatus.averageBlockTime}s` : "—", icon: Clock, color: "text-blue-500" },
-          { label: "Validators", value: netStatus?.activeValidators?.toString() ?? "—", icon: Activity, color: "text-green-500" },
-          { label: "Total TXs", value: netStatus?.totalTransactions?.toLocaleString() ?? "0", icon: Zap, color: "text-amber-500" },
-        ].map((stat, i) => (
-          <Card key={i} className="shadow-none border-amber-200/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <stat.icon className={`w-5 h-5 ${stat.color} shrink-0`} />
-              <div className="min-w-0">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{stat.label}</p>
-                <p className="text-base font-bold text-foreground truncate">{stat.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard icon={<Layers className="w-5 h-5 text-orange-500" />} label="Block Height" value={net ? formatNum(net.blockHeight) : "..."} />
+          <StatCard icon={<ArrowRightLeft className="w-5 h-5 text-orange-500" />} label="Total Transactions" value={net ? formatNum(net.totalTransactions) : "..."} />
+          <StatCard icon={<Users className="w-5 h-5 text-orange-500" />} label="Active Validators" value={net ? String(net.activeValidators) : "..."} />
+          <StatCard icon={<Activity className="w-5 h-5 text-orange-500" />} label="Avg Block Time" value={net ? net.averageBlockTime.toFixed(1) + "s" : "..."} />
+        </div>
 
-      {/* Genesis info */}
-      <div className="rounded-xl border border-amber-200/60 bg-amber-50/30 p-4">
-        <p className="text-xs font-semibold text-amber-700 mb-1">Genesis Transaction</p>
-        <p className="text-xs text-muted-foreground">
-          100,000,000 tZTH sent to <span className="font-mono text-foreground">zth100000000000000000000000000000000yutjs2</span> at genesis (block #1).
-          Testnet ZTH is only for testing — it has no monetary value.
-        </p>
-      </div>
-
-      {/* Blocks + Txs */}
-      <div className="grid md:grid-cols-2 gap-5">
-        <Card className="shadow-none border-amber-200/40">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Layers className="w-4 h-4 text-amber-600" /> Latest Blocks
-            </CardTitle>
-            <Link href="/blocks" className="text-xs text-amber-600 hover:underline flex items-center gap-1" data-testid="link-all-blocks">
-              All blocks <ArrowRight className="w-3 h-3" />
-            </Link>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 space-y-0.5">
-            {blocksLoading ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg mb-1" />) :
-              blockList.slice(0, 8).map((b) => (
-                <div key={b.height} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-amber-50/60 transition-colors">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                      <Layers className="w-3.5 h-3.5 text-amber-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <Link href={`/block/${b.height}`} className="text-sm font-semibold text-amber-700 hover:underline" data-testid={`link-block-${b.height}`}>
-                        #{b.height.toLocaleString()}
+        {/* Latest Blocks & Txs side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Latest Blocks */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+              <h2 className="text-[15px] font-semibold text-gray-900">Latest Blocks</h2>
+              <Link href="/blocks" className="text-xs text-orange-600 hover:text-orange-800 font-medium flex items-center gap-1" data-testid="link-view-blocks">
+                View all <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {blocksLoading ? (
+                Array.from({length: 6}).map((_, i) => <div key={i} className="h-[68px] animate-pulse bg-gray-50" />)
+              ) : blockList.length === 0 ? (
+                <div className="py-12 text-center text-gray-400 text-sm">No blocks found</div>
+              ) : blockList.map(b => (
+                <div key={b.height} className="flex items-center gap-4 px-5 py-3 hover:bg-orange-50/30 transition-colors">
+                  <div className="w-[42px] h-[42px] rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <Box className="w-4.5 h-4.5 text-gray-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link href={`/block/${b.height}`} className="text-[13px] font-semibold text-blue-600 hover:text-blue-800" data-testid={`link-block-${b.height}`}>
+                        {b.height.toLocaleString()}
                       </Link>
-                      <p className="text-xs text-muted-foreground truncate">{b.validatorName}</p>
+                      <span className="text-[11px] text-gray-400">{timeAgo(b.timestamp)}</span>
+                    </div>
+                    <div className="text-[12px] text-gray-500 truncate">
+                      Validated by <span className="text-gray-700">{b.validatorName || shortHash(b.validator)}</span>
                     </div>
                   </div>
-                  <div className="text-right shrink-0 ml-2">
-                    <Badge variant="outline" className="text-[10px] border-amber-200 text-amber-700">{b.transactionCount} txs</Badge>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{timeAgo(b.timestamp)}</p>
+                  <div className="text-right flex-shrink-0">
+                    <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-600">
+                      {b.transactionCount} txn{b.transactionCount !== 1 ? "s" : ""}
+                    </span>
                   </div>
                 </div>
-              ))
-            }
-          </CardContent>
-        </Card>
+              ))}
+            </div>
+          </div>
 
-        <Card className="shadow-none border-amber-200/40">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <ArrowRightLeft className="w-4 h-4 text-amber-600" /> Latest Transactions
-            </CardTitle>
-            <Link href="/txs" className="text-xs text-amber-600 hover:underline flex items-center gap-1" data-testid="link-all-txs">
-              All txs <ArrowRight className="w-3 h-3" />
-            </Link>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 space-y-0.5">
-            {txsLoading ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg mb-1" />) :
-              txList.length === 0 ? (
-                <div className="py-10 text-center">
-                  <ArrowRightLeft className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
-                  <p className="text-sm text-muted-foreground">No transactions yet</p>
-                </div>
-              ) : (
-                txList.slice(0, 8).map((tx) => (
-                  <div key={tx.hash} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-amber-50/60 transition-colors">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                        <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <Link href={`/tx/${tx.hash}`} className="text-xs font-mono text-amber-700 hover:underline truncate block">
-                          {shortHash(tx.hash, 10)}
-                        </Link>
-                        <p className="text-[10px] text-muted-foreground">
-                          {shortHash(tx.from, 6)} → {shortHash(tx.to, 6)}
-                        </p>
-                      </div>
+          {/* Latest Transactions */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+              <h2 className="text-[15px] font-semibold text-gray-900">Latest Transactions</h2>
+              <Link href="/txs" className="text-xs text-orange-600 hover:text-orange-800 font-medium flex items-center gap-1" data-testid="link-view-txs">
+                View all <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {txsLoading ? (
+                Array.from({length: 6}).map((_, i) => <div key={i} className="h-[68px] animate-pulse bg-gray-50" />)
+              ) : txList.length === 0 ? (
+                <div className="py-12 text-center text-gray-400 text-sm">No transactions found</div>
+              ) : txList.map((tx, i) => (
+                <div key={tx.hash + i} className="flex items-center gap-4 px-5 py-3 hover:bg-orange-50/30 transition-colors">
+                  <div className="w-[42px] h-[42px] rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <ArrowRightLeft className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link href={`/tx/${tx.hash}`} className="text-[13px] font-medium text-blue-600 hover:text-blue-800 font-mono" data-testid={`link-tx-${i}`}>
+                        {shortHash(tx.hash)}
+                      </Link>
+                      <span className="text-[11px] text-gray-400">{timeAgo(tx.timestamp)}</span>
                     </div>
-                    <div className="text-right shrink-0 ml-2">
-                      <p className="text-xs font-medium text-foreground">{formatZTH(parseFloat(tx.amount))} tZTH</p>
-                      <Badge variant={tx.status === "success" ? "success" : "destructive"} className="text-[10px] mt-0.5">{tx.status}</Badge>
+                    <div className="text-[12px] text-gray-500 truncate">
+                      From <Link href={`/address/${tx.from}`} className="text-blue-600 hover:underline">{shortHash(tx.from)}</Link>
+                      {" "}To <Link href={`/address/${tx.to}`} className="text-blue-600 hover:underline">{shortHash(tx.to)}</Link>
                     </div>
                   </div>
-                ))
-              )
-            }
-          </CardContent>
-        </Card>
+                  <div className="text-right flex-shrink-0">
+                    <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-orange-50 text-orange-700">
+                      {formatZTH(tx.amount)} ZTH
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+
+  function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+            {icon}
+          </div>
+          <div>
+            <div className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">{label}</div>
+            <div className="text-[17px] font-bold text-gray-900">{value}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
