@@ -193,10 +193,34 @@ async function seedNetwork(network: "mainnet" | "testnet") {
 
 export class BlockchainStorage {
   async init() {
-    await this.ensureTables();
-    await seedNetwork("mainnet");
-    await seedNetwork("testnet");
-  }
+      await this.ensureTables();
+      await this.resetTestnet();
+      await seedNetwork("mainnet");
+      await seedNetwork("testnet");
+    }
+
+    private async resetTestnet() {
+      try {
+        const testnetBlocks = await db.select({ count: sql<number>`COUNT(*)` })
+          .from(dbBlocks).where(eq(dbBlocks.network, "testnet"));
+        const blockCount = Number(testnetBlocks[0]?.count ?? 0);
+
+        if (blockCount > 5) {
+          console.log(`[storage] Resetting testnet: found ${blockCount} blocks, keeping only genesis...`);
+          await db.delete(dbTransactions).where(and(
+            eq(dbTransactions.network, "testnet"),
+            sql`block_height > 1`
+          ));
+          await db.delete(dbBlocks).where(and(
+            eq(dbBlocks.network, "testnet"),
+            sql`height > 1`
+          ));
+          console.log("[storage] Testnet reset to genesis complete.");
+        }
+      } catch (e) {
+        console.log("[storage] Testnet reset skipped:", e instanceof Error ? e.message : String(e));
+      }
+    }
 
   private async ensureTables() {
     try {
