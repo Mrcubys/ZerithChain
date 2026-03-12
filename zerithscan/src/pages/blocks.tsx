@@ -1,86 +1,69 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { timeAgo, shortHash, formatBytes } from "@/lib/chain-utils";
-import { Layers } from "lucide-react";
+  import { Link } from "wouter";
+  import { shortHash, timeAgo } from "@/lib/chain-utils";
+  import { Box } from "lucide-react";
 
-interface Block {
-  height: number; hash: string; timestamp: string;
-  validatorName: string; validator: string;
-  transactionCount: number; size: number;
-}
+  interface Block {
+    height: number; hash: string; timestamp: string;
+    validatorName: string; validator: string; transactionCount: number; size: number;
+  }
 
-export default function Blocks() {
-  const { data: blocks, isLoading } = useQuery<Block[]>({
-    queryKey: ["/api/blocks?limit=50"],
-    refetchInterval: 5000,
-  });
+  export default function Blocks() {
+    const { data: blocks, isLoading } = useQuery<Block[]>({
+      queryKey: ["/api/blocks?limit=25"],
+      refetchInterval: 12000,
+    });
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold flex items-center gap-2">
-          <Layers className="w-5 h-5 text-primary" />
-          Blocks
-        </h2>
-        <span className="text-xs text-muted-foreground">Auto-refreshing every 5s</span>
-      </div>
+    const list = Array.isArray(blocks) ? blocks : [];
 
-      <Card className="rounded-2xl border-border/60 bg-white shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="text-left text-xs text-muted-foreground font-medium py-3 px-4 uppercase tracking-wider">Block</th>
-                <th className="text-left text-xs text-muted-foreground font-medium py-3 pr-4 uppercase tracking-wider hidden md:table-cell">Hash</th>
-                <th className="text-left text-xs text-muted-foreground font-medium py-3 pr-4 uppercase tracking-wider hidden sm:table-cell">Validator</th>
-                <th className="text-right text-xs text-muted-foreground font-medium py-3 pr-4 uppercase tracking-wider">Txns</th>
-                <th className="text-right text-xs text-muted-foreground font-medium py-3 pr-4 uppercase tracking-wider hidden lg:table-cell">Size</th>
-                <th className="text-right text-xs text-muted-foreground font-medium py-3 pr-4 uppercase tracking-wider">Age</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading
-                ? Array.from({ length: 15 }).map((_, i) => (
-                  <tr key={i} className="border-b border-border/40">
-                    <td className="py-3 px-4"><Skeleton className="h-4 w-20" /></td>
-                    <td className="py-3 pr-4 hidden md:table-cell"><Skeleton className="h-4 w-32" /></td>
-                    <td className="py-3 pr-4 hidden sm:table-cell"><Skeleton className="h-4 w-28" /></td>
-                    <td className="py-3 pr-4"><Skeleton className="h-4 w-8 ml-auto" /></td>
-                    <td className="py-3 pr-4 hidden lg:table-cell"><Skeleton className="h-4 w-12 ml-auto" /></td>
-                    <td className="py-3 pr-4"><Skeleton className="h-4 w-14 ml-auto" /></td>
-                  </tr>
-                ))
-                : blocks?.map((block) => (
-                  <tr key={block.height} className="border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors" data-testid={`block-row-${block.height}`}>
-                    <td className="py-3 px-4">
-                      <Link href={`/block/${block.height}`} className="font-mono font-semibold text-primary hover:underline">
-                        #{block.height.toLocaleString()}
+    return (
+      <div>
+        <h1 className="text-[18px] font-bold text-gray-900 mb-4">Blocks</h1>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase text-[11px] tracking-wider">
+                  <th className="text-left px-4 py-3 font-semibold">Block</th>
+                  <th className="text-left px-4 py-3 font-semibold">Age</th>
+                  <th className="text-left px-4 py-3 font-semibold">Txn</th>
+                  <th className="text-left px-4 py-3 font-semibold">Validator</th>
+                  <th className="text-left px-4 py-3 font-semibold">Block Hash</th>
+                  <th className="text-right px-4 py-3 font-semibold">Size</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {isLoading ? (
+                  Array.from({length: 10}).map((_, i) => (
+                    <tr key={i}><td colSpan={6} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  ))
+                ) : list.length === 0 ? (
+                  <tr><td colSpan={6} className="text-center py-12 text-gray-400">No blocks found</td></tr>
+                ) : list.map(b => (
+                  <tr key={b.height} className="hover:bg-blue-50/40 transition-colors">
+                    <td className="px-4 py-3">
+                      <Link href={`/block/${b.height}`} className="text-blue-600 hover:text-blue-800 font-medium" data-testid={`link-block-${b.height}`}>
+                        {b.height.toLocaleString()}
                       </Link>
                     </td>
-                    <td className="py-3 pr-4 hidden md:table-cell">
-                      <span className="font-mono text-xs text-muted-foreground">{shortHash(block.hash, 8)}</span>
+                    <td className="px-4 py-3 text-gray-500">{timeAgo(b.timestamp)}</td>
+                    <td className="px-4 py-3">
+                      <span className="text-blue-600">{b.transactionCount}</span>
                     </td>
-                    <td className="py-3 pr-4 hidden sm:table-cell">
-                      <Link href={`/address/${block.validator}`} className="text-sm hover:text-primary transition-colors truncate max-w-[140px] block">{block.validatorName}</Link>
+                    <td className="px-4 py-3">
+                      <Link href={`/address/${b.validator}`} className="text-blue-600 hover:text-blue-800" data-testid={`link-validator-${b.height}`}>
+                        {b.validatorName || shortHash(b.validator)}
+                      </Link>
                     </td>
-                    <td className="py-3 pr-4 text-right">
-                      <span className="font-mono text-sm">{block.transactionCount}</span>
-                    </td>
-                    <td className="py-3 pr-4 text-right hidden lg:table-cell">
-                      <span className="font-mono text-xs text-muted-foreground">{formatBytes(block.size)}</span>
-                    </td>
-                    <td className="py-3 pr-4 text-right">
-                      <span className="text-xs text-muted-foreground">{timeAgo(block.timestamp)}</span>
-                    </td>
+                    <td className="px-4 py-3 font-mono text-gray-500 text-[12px]">{shortHash(b.hash, 10)}</td>
+                    <td className="px-4 py-3 text-right text-gray-500">{(b.size / 1024).toFixed(2)} KB</td>
                   </tr>
-                ))
-              }
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </Card>
-    </div>
-  );
-}
+      </div>
+    );
+  }
+  
