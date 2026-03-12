@@ -1,156 +1,129 @@
-import { useParams, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
-import { formatZTH, shortHash, shortAddress, txTypeBadgeClass, statusBadgeClass } from "@/lib/chain-utils";
-import { User, ArrowLeft, Copy, Shield, Gem, ArrowRight } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+  import { Link, useParams } from "wouter";
+  import { shortHash, formatZTH, timeAgo } from "@/lib/chain-utils";
+  import { ArrowLeft, Copy } from "lucide-react";
+  import { useState } from "react";
 
-function copyText(text: string) {
-  navigator.clipboard.writeText(text).catch(() => {});
-}
+  interface AddressInfo {
+    address: string; balance: string; stakedBalance: string; nonce: number;
+    walletName: string | null; isValidator: boolean; totalSent: string; totalReceived: string;
+    transactions: Array<{
+      hash: string; from: string; to: string; amount: string;
+      timestamp: string; status: string; type: string; blockHeight: number;
+    }>;
+  }
 
-interface AddressData {
-  address: string; balance: string; stakedBalance: string;
-  nonce: number; transactions: any[]; isValidator: boolean;
-  isDeveloper: boolean; walletName: string | null;
-}
+  export default function AddressDetail() {
+    const { address } = useParams<{ address: string }>();
+    const [copied, setCopied] = useState(false);
 
-export default function AddressDetail() {
-  const { address } = useParams<{ address: string }>();
+    const { data: info, isLoading } = useQuery<AddressInfo>({
+      queryKey: ["/api/address", address],
+      queryFn: async () => {
+        const res = await fetch(`/api/address/${address}`);
+        if (!res.ok) throw new Error("Address not found");
+        return res.json();
+      },
+    });
 
-  const { data, isLoading, error } = useQuery<AddressData>({
-    queryKey: [`/api/addresses/${address}`],
-    queryFn: () => apiFetch(`/api/addresses/${address}`),
-  });
+    const copyAddr = () => {
+      navigator.clipboard.writeText(address || "");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    };
 
-  if (isLoading) {
+    if (isLoading) return <div className="text-center py-12 text-gray-400">Loading...</div>;
+    if (!info) return <div className="text-center py-12 text-gray-400">Address not found</div>;
+
     return (
-      <div className="space-y-4 max-w-3xl">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-32 w-full rounded-2xl" />
-        <Skeleton className="h-48 w-full rounded-2xl" />
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="text-gray-400 hover:text-blue-600"><ArrowLeft className="w-4 h-4" /></Link>
+          <h1 className="text-[18px] font-bold text-gray-900">Address</h1>
+          <span className="text-[13px] font-mono text-gray-600">{address}</span>
+          <button onClick={copyAddr} className="text-gray-400 hover:text-blue-600" data-testid="button-copy">
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+          {copied && <span className="text-[11px] text-green-600">Copied!</span>}
+        </div>
+
+        {/* Overview cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
+            <div className="text-[11px] text-gray-500 uppercase tracking-wider mb-1">Balance</div>
+            <div className="text-[17px] font-bold text-gray-900">{formatZTH(info.balance)}</div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
+            <div className="text-[11px] text-gray-500 uppercase tracking-wider mb-1">Staked</div>
+            <div className="text-[17px] font-bold text-gray-900">{formatZTH(info.stakedBalance)}</div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
+            <div className="text-[11px] text-gray-500 uppercase tracking-wider mb-1">Transactions</div>
+            <div className="text-[17px] font-bold text-gray-900">{info.transactions.length}</div>
+          </div>
+        </div>
+
+        {/* Transactions table */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-100">
+            <h2 className="text-[15px] font-semibold text-gray-900">Transactions</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase text-[11px] tracking-wider">
+                  <th className="text-left px-4 py-3 font-semibold">Txn Hash</th>
+                  <th className="text-left px-4 py-3 font-semibold">Block</th>
+                  <th className="text-left px-4 py-3 font-semibold">Age</th>
+                  <th className="text-left px-4 py-3 font-semibold">From</th>
+                  <th className="text-left px-4 py-3 font-semibold">To</th>
+                  <th className="text-right px-4 py-3 font-semibold">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {info.transactions.length === 0 ? (
+                  <tr><td colSpan={6} className="text-center py-12 text-gray-400">No transactions</td></tr>
+                ) : info.transactions.map((tx, i) => {
+                  const isOutgoing = tx.from === info.address;
+                  return (
+                    <tr key={tx.hash + i} className="hover:bg-blue-50/40 transition-colors">
+                      <td className="px-4 py-3">
+                        <Link href={`/tx/${tx.hash}`} className="text-blue-600 hover:text-blue-800 font-mono" data-testid={`link-tx-${i}`}>
+                          {shortHash(tx.hash, 10)}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link href={`/block/${tx.blockHeight}`} className="text-blue-600 hover:text-blue-800">
+                          {tx.blockHeight.toLocaleString()}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">{timeAgo(tx.timestamp)}</td>
+                      <td className="px-4 py-3">
+                        {tx.from === info.address ? (
+                          <span className="font-mono text-[12px] text-gray-700">{shortHash(tx.from)}</span>
+                        ) : (
+                          <Link href={`/address/${tx.from}`} className="text-blue-600 hover:text-blue-800 font-mono text-[12px]">{shortHash(tx.from)}</Link>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold mr-1 ${isOutgoing ? "bg-orange-50 text-orange-600" : "bg-green-50 text-green-600"}`}>
+                          {isOutgoing ? "OUT" : "IN"}
+                        </span>
+                        {tx.to === info.address ? (
+                          <span className="font-mono text-[12px] text-gray-700">{shortHash(tx.to)}</span>
+                        ) : (
+                          <Link href={`/address/${tx.to}`} className="text-blue-600 hover:text-blue-800 font-mono text-[12px]">{shortHash(tx.to)}</Link>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-900 font-medium">{formatZTH(tx.amount)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     );
   }
-
-  if (error || !data) {
-    return (
-      <div className="text-center py-20">
-        <User className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-        <h2 className="text-lg font-semibold">Address Not Found</h2>
-        <Button variant="outline" size="sm" asChild className="mt-4">
-          <Link href="/"><ArrowLeft className="w-4 h-4 mr-1.5" />Back to Explorer</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-5 max-w-3xl">
-      <div className="flex items-center gap-3 flex-wrap">
-        <Button variant="ghost" size="sm" asChild className="h-8 px-2">
-          <Link href="/"><ArrowLeft className="w-4 h-4 mr-1" />Explorer</Link>
-        </Button>
-        <Separator orientation="vertical" className="h-4" />
-        <User className="w-4 h-4 text-muted-foreground" />
-        <h1 className="font-semibold">Address</h1>
-        {data.isDeveloper && (
-          <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-xs border">
-            <Gem className="w-3 h-3 mr-1" />Genesis
-          </Badge>
-        )}
-        {data.isValidator && (
-          <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-xs border">
-            <Shield className="w-3 h-3 mr-1" />Validator
-          </Badge>
-        )}
-      </div>
-      <div className="flex items-center gap-2 bg-muted/40 rounded-lg px-3 py-2">
-        <span className="font-mono text-xs text-muted-foreground break-all flex-1">{address}</span>
-        <button onClick={() => copyText(address)} className="flex-shrink-0 text-muted-foreground hover:text-foreground" data-testid="copy-address">
-          <Copy className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="rounded-2xl border-border/60 bg-white shadow-sm">
-          <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Balance</div>
-            <div className="text-xl font-bold font-mono text-foreground" data-testid="address-balance">{formatZTH(data.balance)}</div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border-border/60 bg-white shadow-sm">
-          <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Staked</div>
-            <div className="text-xl font-bold font-mono text-foreground" data-testid="address-staked">{formatZTH(data.stakedBalance)}</div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border-border/60 bg-white shadow-sm">
-          <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Transactions</div>
-            <div className="text-xl font-bold font-mono text-foreground" data-testid="address-tx-count">{data.transactions.length}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="rounded-2xl border-border/60 bg-white shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          {[
-            { label: "Address", value: address, mono: true, copyable: true },
-            { label: "Name", value: data.walletName ?? "—" },
-            { label: "Type", value: data.isDeveloper ? "Genesis Developer Wallet" : data.isValidator ? "Validator Node" : "Standard Wallet" },
-            { label: "Nonce", value: data.nonce.toLocaleString() },
-          ].map((row, i) => (
-            <div key={i} className="flex items-start gap-4 py-2.5 border-b border-border/40 last:border-0">
-              <span className="text-xs text-muted-foreground w-24 flex-shrink-0 pt-0.5">{row.label}</span>
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span className={`text-sm break-all ${row.mono ? "font-mono text-muted-foreground" : "font-medium"}`}>{row.value}</span>
-                {row.copyable && (
-                  <button onClick={() => copyText(row.value as string)} className="flex-shrink-0 p-0.5 text-muted-foreground hover:text-foreground">
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {data.transactions.length > 0 && (
-        <Card className="rounded-2xl border-border/60 bg-white shadow-sm overflow-hidden">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Transactions ({data.transactions.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 p-0">
-            {data.transactions.map((tx: any) => (
-              <div key={tx.hash} className="flex items-center gap-3 px-4 py-3 border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors">
-                <div className="flex-shrink-0">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border capitalize ${txTypeBadgeClass(tx.type)}`}>{tx.type}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <Link href={`/tx/${tx.hash}`} className="font-mono text-xs text-primary hover:underline truncate block">{shortHash(tx.hash)}</Link>
-                  <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
-                    <Link href={`/address/${tx.from}`} className="font-mono truncate max-w-[80px] hover:text-foreground">{shortAddress(tx.from)}</Link>
-                    <ArrowRight className="w-2.5 h-2.5 flex-shrink-0" />
-                    <Link href={`/address/${tx.to}`} className="font-mono truncate max-w-[80px] hover:text-foreground">{shortAddress(tx.to)}</Link>
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="font-mono text-xs font-medium">{formatZTH(tx.amount, 2)}</div>
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-medium border capitalize ${statusBadgeClass(tx.status)}`}>{tx.status}</span>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-}
+  
