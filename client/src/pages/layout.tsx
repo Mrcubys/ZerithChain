@@ -1,137 +1,55 @@
 import { Link, useLocation } from "wouter";
-import { Blocks, ArrowLeftRight, Users, Home, Search, Wallet } from "lucide-react";
-import { useState } from "react";
-import zerithLogo from "@assets/zerith-logo_1773195626329.png";
+  import { Wallet, ExternalLink } from "lucide-react";
+  import zerithLogo from "@assets/zerith-logo_1773200744409.png";
 
-function SearchBar() {
-  const [query, setQuery] = useState("");
-  const [, setLocation] = useLocation();
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = query.trim();
-    if (!q) return;
-    if (/^\d+$/.test(q)) {
-      setLocation(`/block/${q}`);
-    } else if (q.startsWith("zth")) {
-      setLocation(`/address/${q}`);
-    } else if (q.startsWith("0x") && q.length === 42) {
-      setLocation(`/address/${q}`);
-    } else if ((q.startsWith("0x") && q.length === 66) || /^[0-9a-fA-F]{64}$/.test(q)) {
-      setLocation(`/tx/${q}`);
-    } else {
-      setLocation(`/address/${q}`);
-    }
-    setQuery("");
-  };
-
-  return (
-    <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1 max-w-xl">
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input
-          data-testid="input-search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search block, tx hash, ZTH address…"
-          className="w-full pl-9 pr-4 h-9 rounded-lg border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-        />
-      </div>
-      <button
-        data-testid="button-search-submit"
-        type="submit"
-        className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-      >
-        Search
-      </button>
-    </form>
-  );
-}
-
-export default function Layout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
-
-  const navLinks = [
-    { href: "/", label: "Home", icon: Home },
-    { href: "/wallet", label: "Wallet", icon: Wallet },
-    { href: "/blocks", label: "Blocks", icon: Blocks },
-    { href: "/txs", label: "Txs", icon: ArrowLeftRight },
-    { href: "/validators", label: "Validators", icon: Users },
-  ];
-
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-6">
-          <Link href="/" data-testid="link-home-logo">
-            <div className="flex items-center gap-2 shrink-0">
-              <img src={zerithLogo} alt="ZerithChain" className="h-8 w-auto" />
-              <span className="font-bold text-foreground text-sm tracking-tight">ZerithWallet</span>
+  export default function Layout({ children }: { children: React.ReactNode }) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col">
+        <header className="border-b border-white/10 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
+            <Link href="/" className="flex items-center gap-3" data-testid="link-home">
+              <img src={zerithLogo} alt="Zerith" className="h-9 w-9 rounded-full" />
+              <div>
+                <span className="font-bold text-lg tracking-tight text-white">ZerithWallet</span>
+                <span className="block text-[10px] text-emerald-400 font-medium -mt-0.5">Multi-Chain Wallet</span>
+              </div>
+            </Link>
+            <div className="flex items-center gap-3">
+              <a
+                href="https://zerithscan.vercel.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+                data-testid="link-explorer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Explorer
+              </a>
+              <a
+                href="https://testnet-zerithscan.vercel.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+                data-testid="link-testnet"
+              >
+                Testnet Explorer
+              </a>
             </div>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map(({ href, label, icon: Icon }) => {
-              const isActive = href === "/" ? location === "/" : location.startsWith(href);
-              return (
-                <Link key={href} href={href}>
-                  <span
-                    data-testid={`link-nav-${label.toLowerCase()}`}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
-                      isActive
-                        ? "bg-primary/15 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="flex-1 flex justify-end md:justify-start">
-            <SearchBar />
           </div>
-        </div>
-
-        <div className="md:hidden border-t border-border bg-card">
-          <div className="max-w-7xl mx-auto px-4 flex items-center gap-0 overflow-x-auto">
-            {navLinks.map(({ href, label, icon: Icon }) => {
-              const isActive = href === "/" ? location === "/" : location.startsWith(href);
-              return (
-                <Link key={href} href={href}>
-                  <span
-                    className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border-b-2 ${
-                      isActive
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </span>
-                </Link>
-              );
-            })}
+        </header>
+        <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8">
+          {children}
+        </main>
+        <footer className="border-t border-white/5 py-4 mt-auto">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <img src={zerithLogo} alt="Zerith" className="h-4 w-4 rounded-full opacity-60" />
+              <span className="text-xs text-slate-500">ZerithWallet — Multi-Chain Web Wallet</span>
+            </div>
+            <span className="text-xs text-slate-600">Powered by Zerith Chain</span>
           </div>
-        </div>
-      </header>
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
-        {children}
-      </main>
-
-      <footer className="border-t border-border bg-card/50 py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <img src={zerithLogo} alt="ZerithChain" className="h-4 w-auto" />
-            <span>ZerithWallet — Zerith Chain Wallet & Explorer</span>
-          </div>
-          <span>Zerith Chain v1.0.0</span>
-        </div>
-      </footer>
-    </div>
-  );
-}
+        </footer>
+      </div>
+    );
+  }
+  
