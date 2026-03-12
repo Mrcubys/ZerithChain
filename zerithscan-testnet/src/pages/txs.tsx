@@ -1,113 +1,79 @@
-import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { shortHash, shortAddress, formatZTH, timeAgo, txTypeBadgeClass, statusBadgeClass } from "@/lib/chain-utils";
-import { ArrowRightLeft, Search, ArrowRight } from "lucide-react";
+  import { Link } from "wouter";
+  import { shortHash, formatZTH, timeAgo } from "@/lib/chain-utils";
 
-interface Transaction {
-  hash: string; from: string; to: string; amount: string;
-  timestamp: string; status: string; type: string;
-}
+  interface Transaction {
+    hash: string; from: string; to: string; amount: string;
+    timestamp: string; status: string; type: string; fee: string; blockHeight: number;
+  }
 
-export default function Txs() {
-  const [search, setSearch] = useState("");
+  export default function Txs() {
+    const { data: txs, isLoading } = useQuery<Transaction[]>({
+      queryKey: ["/api/transactions?limit=25"],
+      refetchInterval: 12000,
+    });
 
-  const { data: txs, isLoading } = useQuery<Transaction[]>({
-    queryKey: ["/api/transactions?limit=50"],
-    refetchInterval: 5000,
-  });
+    const list = Array.isArray(txs) ? txs : [];
 
-  const filtered = useMemo(() => {
-    if (!txs || !search.trim()) return txs ?? [];
-    const q = search.trim().toLowerCase();
-    return txs.filter(tx =>
-      tx.hash.toLowerCase().includes(q) ||
-      tx.from.toLowerCase().includes(q) ||
-      tx.to.toLowerCase().includes(q) ||
-      tx.type.includes(q)
-    );
-  }, [txs, search]);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-lg font-bold flex items-center gap-2">
-          <ArrowRightLeft className="w-5 h-5 text-primary" />
-          Transactions
-        </h2>
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Filter by hash or address…"
-            className="pl-9 h-9 rounded-xl bg-white text-sm"
-            data-testid="input-filter"
-          />
+    return (
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <h1 className="text-[18px] font-bold text-gray-900">Transactions</h1>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-600 uppercase">Testnet</span>
         </div>
-      </div>
-
-      <Card className="rounded-2xl border-border/60 bg-white shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="text-left text-xs text-muted-foreground font-medium py-3 px-4 uppercase tracking-wider">Tx Hash</th>
-                <th className="text-left text-xs text-muted-foreground font-medium py-3 pr-4 uppercase tracking-wider hidden sm:table-cell">Type</th>
-                <th className="text-left text-xs text-muted-foreground font-medium py-3 pr-4 uppercase tracking-wider hidden md:table-cell">From → To</th>
-                <th className="text-right text-xs text-muted-foreground font-medium py-3 pr-4 uppercase tracking-wider hidden lg:table-cell">Amount</th>
-                <th className="text-right text-xs text-muted-foreground font-medium py-3 pr-4 uppercase tracking-wider">Status</th>
-                <th className="text-right text-xs text-muted-foreground font-medium py-3 pr-4 uppercase tracking-wider">Age</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading
-                ? Array.from({ length: 15 }).map((_, i) => (
-                  <tr key={i} className="border-b border-border/40">
-                    <td className="py-3 px-4"><Skeleton className="h-4 w-32" /></td>
-                    <td className="py-3 pr-4 hidden sm:table-cell"><Skeleton className="h-4 w-16" /></td>
-                    <td className="py-3 pr-4 hidden md:table-cell"><Skeleton className="h-4 w-40" /></td>
-                    <td className="py-3 pr-4 hidden lg:table-cell"><Skeleton className="h-4 w-20 ml-auto" /></td>
-                    <td className="py-3 pr-4"><Skeleton className="h-4 w-14 ml-auto" /></td>
-                    <td className="py-3 pr-4"><Skeleton className="h-4 w-12 ml-auto" /></td>
-                  </tr>
-                ))
-                : filtered.map((tx) => (
-                  <tr key={tx.hash} className="border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors" data-testid={`tx-row-${tx.hash.slice(0, 8)}`}>
-                    <td className="py-3 px-4">
-                      <Link href={`/tx/${tx.hash}`} className="font-mono text-xs text-primary hover:underline">
-                        {shortHash(tx.hash)}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase text-[11px] tracking-wider">
+                  <th className="text-left px-4 py-3 font-semibold">Txn Hash</th>
+                  <th className="text-left px-4 py-3 font-semibold">Block</th>
+                  <th className="text-left px-4 py-3 font-semibold">Age</th>
+                  <th className="text-left px-4 py-3 font-semibold">From</th>
+                  <th className="text-left px-4 py-3 font-semibold">To</th>
+                  <th className="text-right px-4 py-3 font-semibold">Value</th>
+                  <th className="text-right px-4 py-3 font-semibold">Txn Fee</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {isLoading ? (
+                  Array.from({length: 10}).map((_, i) => (
+                    <tr key={i}><td colSpan={7} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                  ))
+                ) : list.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center py-12 text-gray-400">No transactions found</td></tr>
+                ) : list.map((tx, i) => (
+                  <tr key={tx.hash + i} className="hover:bg-orange-50/40 transition-colors">
+                    <td className="px-4 py-3">
+                      <Link href={`/tx/${tx.hash}`} className="text-blue-600 hover:text-blue-800 font-mono" data-testid={`link-tx-${i}`}>
+                        {shortHash(tx.hash, 10)}
                       </Link>
                     </td>
-                    <td className="py-3 pr-4 hidden sm:table-cell">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border capitalize ${txTypeBadgeClass(tx.type)}`}>{tx.type}</span>
+                    <td className="px-4 py-3">
+                      <Link href={`/block/${tx.blockHeight}`} className="text-blue-600 hover:text-blue-800" data-testid={`link-block-${i}`}>
+                        {tx.blockHeight?.toLocaleString() ?? "—"}
+                      </Link>
                     </td>
-                    <td className="py-3 pr-4 hidden md:table-cell">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Link href={`/address/${tx.from}`} className="font-mono hover:text-foreground">{shortAddress(tx.from)}</Link>
-                        <ArrowRight className="w-3 h-3 flex-shrink-0" />
-                        <Link href={`/address/${tx.to}`} className="font-mono hover:text-foreground">{shortAddress(tx.to)}</Link>
-                      </div>
+                    <td className="px-4 py-3 text-gray-500">{timeAgo(tx.timestamp)}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/address/${tx.from}`} className="text-blue-600 hover:text-blue-800 font-mono text-[12px]" data-testid={`link-from-${i}`}>
+                        {shortHash(tx.from)}
+                      </Link>
                     </td>
-                    <td className="py-3 pr-4 text-right hidden lg:table-cell">
-                      <span className="font-mono text-xs font-medium">{formatZTH(tx.amount, 2)}</span>
+                    <td className="px-4 py-3">
+                      <Link href={`/address/${tx.to}`} className="text-blue-600 hover:text-blue-800 font-mono text-[12px]" data-testid={`link-to-${i}`}>
+                        {shortHash(tx.to)}
+                      </Link>
                     </td>
-                    <td className="py-3 pr-4 text-right">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border capitalize ${statusBadgeClass(tx.status)}`}>{tx.status}</span>
-                    </td>
-                    <td className="py-3 pr-4 text-right">
-                      <span className="text-xs text-muted-foreground">{timeAgo(tx.timestamp)}</span>
-                    </td>
+                    <td className="px-4 py-3 text-right text-gray-900 font-medium">{formatZTH(tx.amount)}</td>
+                    <td className="px-4 py-3 text-right text-gray-400 text-[12px]">{tx.fee ? formatZTH(tx.fee) : "—"}</td>
                   </tr>
-                ))
-              }
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </Card>
-    </div>
-  );
-}
+      </div>
+    );
+  }
+  
